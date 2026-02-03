@@ -15,3 +15,21 @@ Retrieval-Augmented Generation (RAG) is a technique that enhances LLM responses 
 3. **Generating** responses grounded in the retrieved information
 
 This approach helps reduce hallucinations and enables the model to access up-to-date or domain-specific information.
+
+## Tech Stack
+
+**Backend:** Nest.js, Prisma, PostgreSQL, Redis, MinIO, Chroma, Ollama
+
+**Frontend:** React, Tanstack Router, Tanstack Query, shadcn/ui
+
+## Features
+
+- Chat interface for querying the knowledge base
+- Admin panel for managing articles and images
+- JWT authentication (access + refresh tokens)
+- Document chunking and embedding
+- Image description generation and embedding
+
+## Documentation
+
+- [Architecture](./docs/architecture.md) - System design, data models, API endpoints

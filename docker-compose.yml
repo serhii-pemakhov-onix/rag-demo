@@ -4,7 +4,7 @@ services:
     container_name: ragdemo-postgres
     restart: unless-stopped
     env_file:
-    - api/.env
+      - apps/api/.env
     environment:
       POSTGRES_USER: ${POSTGRES_USER} 
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -64,15 +64,6 @@ services:
     environment:
       ANONYMIZED_TELEMETRY: 'false'
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ragdemo-ollama
-    restart: unless-stopped
-    ports:
-      - '11434:11434'
-    volumes:
-      - ollama_data:/root/.ollama
-
   mailpit:
     image: axllent/mailpit:latest
     container_name: ragdemo-mailpit
@@ -89,4 +80,3 @@ volumes:
   redis_data:
   minio_data:
   chroma_data:
-  ollama_data:

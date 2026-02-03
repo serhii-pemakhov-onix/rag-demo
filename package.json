@@ -1,0 +1,7 @@
+{
+  "name": "rag-demo",
+  "private": true,
+  "scripts": {
+    "aic": "aic -t conventional -g 3"
+  }
+}
