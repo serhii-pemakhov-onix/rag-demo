@@ -1,42 +1,137 @@
-import { useState, useRef, type FormEvent } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { createFileRoute } from '@tanstack/react-router';
-import { useArticles, useUploadArticle, useDeleteArticle } from '@/hooks/useArticles';
+import { Plus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import type { DocumentStatus } from '@/api/admin';
+import { AddAgentDialog } from '@/components/admin/AddAgentDialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import { FileInput } from '@/components/ui/file-input';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  useAgents,
+  useArticles,
+  useDeleteArticle,
+  useUploadArticle,
+} from '@/hooks/useArticles';
 
 export const Route = createFileRoute('/admin/articles')({
   component: ArticlesPage,
 });
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_EXTENSIONS = ['.txt', '.md', '.pdf', '.html', '.docx'];
+
+const uploadSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
+  agentId: z.string().uuid('Please select an agent'),
+});
+
+type UploadFormValues = z.infer<typeof uploadSchema>;
+
+function StatusBadge({ status }: { status: DocumentStatus }) {
+  const styles: Record<DocumentStatus, string> = {
+    PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    PROCESSING: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    COMPLETED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    FAILED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[status]}`}
+    >
+      {status}
+    </span>
+  );
+}
+
 function ArticlesPage() {
-  const { data: articles, isLoading, error } = useArticles();
+  const { data: agents, isLoading: agentsLoading } = useAgents();
+  const [filterAgentId, setFilterAgentId] = useState<string | undefined>();
+  const { data: articles, isLoading, error } = useArticles(filterAgentId);
   const uploadMutation = useUploadArticle();
   const deleteMutation = useDeleteArticle();
-
-  const [title, setTitle] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [addAgentOpen, setAddAgentOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
 
-  const handleUpload = async (e: FormEvent) => {
-    e.preventDefault();
+  const form = useForm<UploadFormValues>({
+    resolver: zodResolver(uploadSchema),
+    defaultValues: {
+      title: '',
+      agentId: '',
+    },
+  });
+
+  const onSubmit = async (data: UploadFormValues) => {
     const file = fileInputRef.current?.files?.[0];
-    if (!file || !title.trim()) return;
+
+    if (!file) {
+      form.setError('root', { message: 'Please select a file' });
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      form.setError('root', { message: 'File size exceeds 10MB limit' });
+      return;
+    }
+
+    const ext = `.${file.name.split('.').pop()?.toLowerCase()}`;
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      form.setError('root', {
+        message: `Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`,
+      });
+      return;
+    }
 
     try {
-      await uploadMutation.mutateAsync({ file, title: title.trim() });
-      setTitle('');
+      await uploadMutation.mutateAsync({
+        file,
+        title: data.title,
+        agentId: data.agentId,
+      });
+      form.reset();
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch {
-      // Error is handled by mutation state
+    } catch (err) {
+      form.setError('root', {
+        message: err instanceof Error ? err.message : 'Upload failed',
+      });
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) return;
-    await deleteMutation.mutateAsync(id);
+  const handleDeleteClick = (id: string) => {
+    setDocumentToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!documentToDelete) return;
+    await deleteMutation.mutateAsync(documentToDelete);
+    setDeleteDialogOpen(false);
+    setDocumentToDelete(null);
   };
 
   const formatSize = (bytes: number) => {
@@ -45,57 +140,145 @@ function ArticlesPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const handleAgentCreated = (agentId: string) => {
+    form.setValue('agentId', agentId);
+  };
+
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Articles</h1>
+      <h1 className="text-2xl font-bold mb-6">Documents</h1>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Upload Article</CardTitle>
-          <CardDescription>Add a new article to the knowledge base</CardDescription>
+          <CardTitle>Upload Document</CardTitle>
+          <CardDescription>Add a new document to an agent's knowledge base</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleUpload} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Article title"
-                required
+          {form.formState.errors.root && (
+            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+              {form.formState.errors.root.message}
+            </div>
+          )}
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="agentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Agent</FormLabel>
+                    {!agentsLoading && (!agents || agents.length === 0) ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">No agents available.</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAddAgentOpen(true)}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Create Agent
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={agentsLoading}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder="Select an agent" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {agents?.map((agent) => (
+                              <SelectItem key={agent.id} value={agent.id}>
+                                {agent.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setAddAgentOpen(true)}
+                          title="Add new agent"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="file">File</Label>
-              <Input id="file" type="file" ref={fileInputRef} required />
-            </div>
-            <Button type="submit" disabled={uploadMutation.isPending}>
-              {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
-            </Button>
-            {uploadMutation.error && (
-              <p className="text-sm text-destructive">
-                {uploadMutation.error instanceof Error
-                  ? uploadMutation.error.message
-                  : 'Upload failed'}
-              </p>
-            )}
-          </form>
+
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Document title" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-2">
+                <FormLabel>File</FormLabel>
+                <FileInput ref={fileInputRef} accept={ALLOWED_EXTENSIONS.join(',')} />
+                <FormDescription>
+                  Allowed: {ALLOWED_EXTENSIONS.join(', ')} (max 10MB)
+                </FormDescription>
+              </div>
+
+              <Button type="submit" disabled={uploadMutation.isPending || agentsLoading}>
+                {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Article List</CardTitle>
-          <CardDescription>Manage your uploaded articles</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Document List</CardTitle>
+              <CardDescription>Manage your uploaded documents</CardDescription>
+            </div>
+            <div className="w-48">
+              <Select
+                value={filterAgentId || 'all'}
+                onValueChange={(value) => setFilterAgentId(value === 'all' ? undefined : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All agents</SelectItem>
+                  {agents?.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading && <p className="text-muted-foreground">Loading...</p>}
-          {error && (
-            <p className="text-destructive">Failed to load articles</p>
-          )}
+          {error && <p className="text-destructive">Failed to load documents</p>}
           {articles && articles.length === 0 && (
-            <p className="text-muted-foreground">No articles yet. Upload one above.</p>
+            <p className="text-muted-foreground">No documents yet. Upload one above.</p>
           )}
           {articles && articles.length > 0 && (
             <div className="space-y-2">
@@ -104,22 +287,24 @@ function ArticlesPage() {
                   key={article.id}
                   className="flex items-center justify-between p-3 border rounded-md"
                 >
-                  <div>
-                    <p className="font-medium">{article.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {article.filename} • {formatSize(article.size)} •{' '}
-                      {article.isEmbedded ? (
-                        <span className="text-green-600">Embedded</span>
-                      ) : (
-                        <span className="text-yellow-600">Pending</span>
-                      )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{article.title}</p>
+                      <StatusBadge status={article.status} />
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {article.agent.name} &middot; {article.filename} &middot;{' '}
+                      {formatSize(article.size)}
                     </p>
+                    {article.error && (
+                      <p className="text-sm text-destructive mt-1">{article.error}</p>
+                    )}
                   </div>
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDelete(article.id)}
-                    disabled={deleteMutation.isPending}
+                    onClick={() => handleDeleteClick(article.id)}
+                    className="ml-4 flex-shrink-0"
                   >
                     Delete
                   </Button>
@@ -129,6 +314,21 @@ function ArticlesPage() {
           )}
         </CardContent>
       </Card>
+
+      <AddAgentDialog
+        open={addAgentOpen}
+        onOpenChange={setAddAgentOpen}
+        onSuccess={handleAgentCreated}
+      />
+
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Document"
+        description="Are you sure you want to delete this document? This action cannot be undone."
+        isDeleting={deleteMutation.isPending}
+      />
     </div>
   );
 }

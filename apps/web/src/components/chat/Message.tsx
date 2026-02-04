@@ -15,7 +15,7 @@ export function Message({ content, role }: MessageProps) {
           'max-w-[70%] px-4 py-2 rounded-lg',
           isUser
             ? 'bg-primary text-primary-foreground rounded-br-none'
-            : 'bg-muted text-foreground rounded-bl-none'
+            : 'bg-muted text-foreground rounded-bl-none',
         )}
       >
         <p className="whitespace-pre-wrap">{content}</p>

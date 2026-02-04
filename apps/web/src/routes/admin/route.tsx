@@ -1,7 +1,14 @@
-import { createFileRoute, Outlet, redirect, Link, useLocation, useNavigate } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useLocation,
+  useNavigate,
+} from '@tanstack/react-router';
 import { getStoredAuth } from '@/api/auth';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/admin')({
@@ -30,6 +37,7 @@ function AdminLayout() {
 
   const navItems = [
     { to: '/admin', label: 'Dashboard', exact: true },
+    { to: '/admin/agents', label: 'Agents' },
     { to: '/admin/articles', label: 'Articles' },
     { to: '/admin/images', label: 'Images' },
   ];
@@ -52,9 +60,7 @@ function AdminLayout() {
                 to={item.to}
                 className={cn(
                   'block px-3 py-2 rounded-md text-sm transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
+                  isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
                 )}
               >
                 {item.label}

@@ -15,9 +15,7 @@ function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Welcome, {user?.name || 'Admin'}!</CardTitle>
-          <CardDescription>
-            You are logged in as {user?.email}
-          </CardDescription>
+          <CardDescription>You are logged in as {user?.email}</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">

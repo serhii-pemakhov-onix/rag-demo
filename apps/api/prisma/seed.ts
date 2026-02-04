@@ -26,6 +26,21 @@ async function main() {
   });
 
   console.log('Seeded admin user:', admin.email);
+
+  const defaultAgent = await prisma.agent.upsert({
+    where: { slug: 'general-assistant' },
+    update: {},
+    create: {
+      name: 'General Assistant',
+      slug: 'general-assistant',
+      description: 'A general-purpose AI assistant that can help with various tasks.',
+      systemPrompt:
+        'You are a helpful AI assistant. Use the provided context to answer questions accurately and concisely.',
+      isActive: true,
+    },
+  });
+
+  console.log('Seeded agent:', defaultAgent.name);
 }
 
 main()

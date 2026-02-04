@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { MessageList, type ChatMessage } from './MessageList';
-import { MessageInput } from './MessageInput';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageInput } from './MessageInput';
+import { type ChatMessage, MessageList } from './MessageList';
 
 const MOCK_RESPONSES = [
   "I'm a demo chatbot. The API connection is not implemented yet.",

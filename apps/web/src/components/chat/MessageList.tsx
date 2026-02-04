@@ -16,7 +16,7 @@ export function MessageList({ messages }: MessageListProps) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, []);
 
   return (
     <div className="flex-1 overflow-y-auto p-4">

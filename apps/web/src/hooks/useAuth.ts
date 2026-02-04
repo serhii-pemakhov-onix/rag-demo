@@ -2,9 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   login as apiLogin,
   logout as apiLogout,
+  clearStoredAuth,
   getStoredAuth,
   setStoredAuth,
-  clearStoredAuth,
   type User,
 } from '@/api/auth';
 
@@ -27,7 +27,8 @@ export function useAuth() {
         isAuthenticated: !!accessToken,
       };
     },
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
   });
 
   const loginMutation = useMutation({

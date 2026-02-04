@@ -1,16 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: '/api',
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+import { api } from './client';
 
 export interface User {
   id: string;
@@ -24,8 +12,7 @@ export interface LoginResponse {
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  const response = await api.post<LoginResponse>('/auth/login', { email, password });
-  return response.data;
+  return api.post<LoginResponse>('/auth/login', { email, password }, { skipAuth: true });
 }
 
 export async function logout(): Promise<void> {
@@ -33,8 +20,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function refresh(): Promise<LoginResponse> {
-  const response = await api.post<LoginResponse>('/auth/refresh');
-  return response.data;
+  return api.post<LoginResponse>('/auth/refresh', undefined, { skipAuth: true });
 }
 
 export function getStoredAuth(): { accessToken: string | null; user: User | null } {

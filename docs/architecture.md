@@ -301,12 +301,19 @@ Services for local development:
 - **postgres**: PostgreSQL database (port 5432)
 - **redis**: Redis cache (port 6379)
 - **minio**: MinIO object storage (port 9000, console 9001)
-- **chroma**: Chroma vector database (port 8000)
 - **mailpit**: Email testing server (SMTP 1025, UI 8025)
 
-### External Dependencies
+### External Services
 
-- **ollama**: Install locally from https://ollama.ai (port 11434)
+- **Chroma Cloud**: Vector database (https://trychroma.com)
+- **Ollama**: Install locally from https://ollama.ai (port 11434)
+  ```bash
+  # Required models
+  ollama pull nomic-embed-text-v2-moe  # Embeddings
+  ollama pull llama3.2                  # Chat
+  ollama pull x/z-image-turbo:latest    # Image descriptions
+  ```
+  Note: `nomic-embed-text-v2-moe` requires prefixes (`search_query:` for queries, `search_document:` for documents)
 
 ## Configuration
 
@@ -327,16 +334,17 @@ MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=ragdemo
 
-# Chroma
-CHROMA_HOST=localhost
-CHROMA_PORT=8000
+# Chroma Cloud
+CHROMA_API_KEY=your-chroma-api-key
+CHROMA_TENANT=your-tenant-id
+CHROMA_DATABASE=ragdemo
 
 # Ollama
 OLLAMA_HOST=localhost
 OLLAMA_PORT=11434
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text-v2-moe
 OLLAMA_CHAT_MODEL=llama3.2
-OLLAMA_VISION_MODEL=llava
+OLLAMA_VISION_MODEL=x/z-image-turbo:latest
 
 # JWT
 JWT_ACCESS_SECRET=your-access-secret

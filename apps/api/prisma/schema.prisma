@@ -35,3 +35,67 @@ enum Role {
   USER
   ADMIN
 }
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Agent {
+  id                     String     @id @default(uuid())
+  name                   String
+  slug                   String     @unique
+  description            String?
+  systemPrompt           String     @db.Text
+  visionPromptInstruction String?   @db.Text
+  isActive               Boolean    @default(true)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  documents              Document[]
+  images                 Image[]
+
+  @@map("agents")
+}
+
+model Document {
+  id          String         @id @default(uuid())
+  agentId     String
+  agent       Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  title       String
+  filename    String
+  mimeType    String
+  minioKey    String
+  size        Int
+  status      DocumentStatus @default(PENDING)
+  chunkCount  Int?
+  error       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  processedAt DateTime?
+
+  @@index([agentId])
+  @@index([status])
+  @@map("documents")
+}
+
+model Image {
+  id          String         @id @default(uuid())
+  agentId     String
+  agent       Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  filename    String
+  mimeType    String
+  minioKey    String
+  size        Int
+  description Json?
+  status      DocumentStatus @default(PENDING)
+  error       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  processedAt DateTime?
+
+  @@index([agentId])
+  @@index([status])
+  @@map("images")
+}

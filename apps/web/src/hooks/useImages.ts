@@ -1,15 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  getImages,
-  uploadImage,
-  deleteImage,
-  type Image,
-} from '@/api/admin';
+import { deleteImage, getImages, type Image, uploadImage } from '@/api/admin';
 
-export function useImages() {
+export function useImages(agentId?: string) {
   return useQuery<Image[]>({
-    queryKey: ['images'],
-    queryFn: getImages,
+    queryKey: ['images', agentId],
+    queryFn: () => getImages(agentId),
   });
 }
 
@@ -17,7 +12,7 @@ export function useUploadImage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (file: File) => uploadImage(file),
+    mutationFn: ({ file, agentId }: { file: File; agentId: string }) => uploadImage(file, agentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['images'] });
     },
