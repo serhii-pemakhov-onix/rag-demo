@@ -25,9 +25,9 @@ export function AgentSelector({ value, onChange, disabled }: AgentSelectorProps)
       <SelectTrigger className="w-[200px]">
         <SelectValue placeholder="Select an agent" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" side="bottom" align="end" className="max-w-[300px]">
         {agents?.map((agent) => (
-          <SelectItem key={agent.id} value={agent.id}>
+          <SelectItem key={agent.id} value={agent.id} description={agent.description ?? undefined}>
             {agent.name}
           </SelectItem>
         ))}
