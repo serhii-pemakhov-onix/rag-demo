@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ChatImage, ChatSource } from '@/api/chat';
 import { Message } from './Message';
 
@@ -13,6 +13,7 @@ export interface ChatMessage {
 interface MessageListProps {
   messages: ChatMessage[];
   isTyping?: boolean;
+  sendCount?: number;
 }
 
 function TypingIndicator() {
@@ -27,18 +28,40 @@ function TypingIndicator() {
   );
 }
 
-export function MessageList({ messages, isTyping }: MessageListProps) {
+export function MessageList({ messages, isTyping, sendCount = 0 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-    if (isNearBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const handleScroll = () => {
+      isNearBottomRef.current =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Force scroll on new user message
+  useEffect(() => {
+    if (sendCount > 0) {
+      isNearBottomRef.current = true;
+      scrollToBottom();
     }
-  }, [messages, isTyping]);
+  }, [sendCount, scrollToBottom]);
+
+  // Auto-scroll on content changes only if near bottom
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [messages, isTyping, scrollToBottom]);
 
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto p-4">

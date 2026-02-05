@@ -9,6 +9,7 @@ import { type ChatMessage, MessageList } from './MessageList';
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [agentId, setAgentId] = useState(() => localStorage.getItem('agent:chat') ?? '');
+  const [sendCount, setSendCount] = useState(0);
   const { streamState, sendStream, abort } = useStreamChat();
   const assistantMessageRef = useRef<ChatMessage | null>(null);
 
@@ -27,6 +28,7 @@ export function ChatWindow() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    setSendCount((c) => c + 1);
 
     const history: ChatHistoryMessage[] = messages.map((msg) => ({
       role: msg.role,
@@ -101,7 +103,7 @@ export function ChatWindow() {
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-        <MessageList messages={messages} isTyping={streamState.isPreprocessing} />
+        <MessageList messages={messages} isTyping={streamState.isPreprocessing} sendCount={sendCount} />
         <MessageInput onSend={handleSend} disabled={streamState.isStreaming || !agentId} />
       </CardContent>
     </Card>
