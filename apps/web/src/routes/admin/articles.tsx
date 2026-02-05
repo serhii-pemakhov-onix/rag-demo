@@ -71,7 +71,9 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
 
 function ArticlesPage() {
   const { data: agents, isLoading: agentsLoading } = useAgents();
-  const [filterAgentId, setFilterAgentId] = useState<string | undefined>();
+  const [filterAgentId, setFilterAgentId] = useState<string | undefined>(
+    () => localStorage.getItem('agent:articles') ?? undefined,
+  );
   const { data: articles, isLoading, error } = useArticles(filterAgentId);
   const uploadMutation = useUploadArticle();
   const deleteMutation = useDeleteArticle();
@@ -261,7 +263,12 @@ function ArticlesPage() {
             <div className="w-48">
               <Select
                 value={filterAgentId || 'all'}
-                onValueChange={(value) => setFilterAgentId(value === 'all' ? undefined : value)}
+                onValueChange={(value) => {
+                  const next = value === 'all' ? undefined : value;
+                  setFilterAgentId(next);
+                  if (next) localStorage.setItem('agent:articles', next);
+                  else localStorage.removeItem('agent:articles');
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by agent" />

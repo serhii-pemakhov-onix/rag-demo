@@ -11,7 +11,7 @@ function RootComponent() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="mx-auto px-4 py-4 flex justify-between items-center">
           <Link to="/" className="text-xl font-bold text-foreground">
             RAG Demo
           </Link>

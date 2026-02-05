@@ -21,10 +21,8 @@ export function Message({ content, role, images, sources }: MessageProps) {
             : 'bg-muted text-foreground rounded-bl-none',
         )}
       >
-        <p className="whitespace-pre-wrap">{content}</p>
-
         {!isUser && images && images.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className={cn('grid grid-cols-2 gap-2', content && 'mb-3')}>
             {images.map((image) => (
               <img
                 key={image.id}
@@ -36,19 +34,8 @@ export function Message({ content, role, images, sources }: MessageProps) {
           </div>
         )}
 
-        {!isUser && sources && sources.length > 0 && (
-          <div className="mt-3 pt-2 border-t border-border/50">
-            <p className="text-xs text-muted-foreground mb-1">Sources:</p>
-            <ul className="space-y-0.5">
-              {sources.map((source) => (
-                <li key={`${source.type}-${source.id}`} className="text-xs text-muted-foreground">
-                  <span className="capitalize">{source.type}</span>: {source.title}{' '}
-                  <span className="opacity-60">({Math.round(source.score * 100)}%)</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <p className="whitespace-pre-wrap">{content}</p>
+
       </div>
     </div>
   );

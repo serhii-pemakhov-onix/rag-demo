@@ -3,14 +3,21 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { OllamaService } from '../../providers/ollama/ollama.service';
 import { AgentsService } from '../agents/agents.service';
 import { RagService } from '../rag/rag.service';
-import type {
-  ChatImageDto,
-  ChatRequestDto,
-  ChatResponseDto,
-  ChatSourceDto,
-} from './dto/chat.dto';
+import type { ChatImageDto, ChatRequestDto, ChatResponseDto, ChatSourceDto } from './dto/chat.dto';
 
 const MAX_HISTORY_MESSAGES = 20;
+
+export type StreamEvent =
+  | { event: 'sources'; data: { images: ChatImageDto[]; sources: ChatSourceDto[] } }
+  | { event: 'token'; data: { content: string } }
+  | { event: 'done'; data: Record<string, never> }
+  | { event: 'error'; data: { message: string } };
+
+interface PreparedChat {
+  messages: { role: string; content: string }[];
+  images: ChatImageDto[];
+  sources: ChatSourceDto[];
+}
 
 @Injectable()
 export class ChatService {
@@ -23,14 +30,18 @@ export class ChatService {
     private prisma: PrismaService,
   ) {}
 
-  async processMessage(dto: ChatRequestDto): Promise<ChatResponseDto> {
-    this.logger.log(`processMessage called: agentId=${dto.agentId}, message="${dto.message}", historyLength=${dto.history?.length ?? 0}`);
+  private async prepareChat(dto: ChatRequestDto): Promise<PreparedChat> {
+    this.logger.log(
+      `prepareChat called: agentId=${dto.agentId}, message="${dto.message}", historyLength=${dto.history?.length ?? 0}`,
+    );
 
     // 1. Validate agent
     let agent: Awaited<ReturnType<typeof this.agentsService.findById>>;
     try {
       agent = await this.agentsService.findById(dto.agentId);
-      this.logger.log(`Agent found: name="${agent.name}", slug="${agent.slug}", isActive=${agent.isActive}`);
+      this.logger.log(
+        `Agent found: name="${agent.name}", slug="${agent.slug}", isActive=${agent.isActive}`,
+      );
     } catch (error) {
       this.logger.error(`Agent lookup failed: ${error}`);
       throw error;
@@ -49,7 +60,9 @@ export class ChatService {
       const searchResults = await this.ragService.searchSimilar(agent.slug, dto.message);
       documents = searchResults.documents;
       metadatas = searchResults.metadatas;
-      this.logger.log(`Chroma returned ${documents.length} documents, ${metadatas.length} metadatas`);
+      this.logger.log(
+        `Chroma returned ${documents.length} documents, ${metadatas.length} metadatas`,
+      );
     } catch (error) {
       this.logger.warn(`Vector search failed, proceeding without context: ${error}`);
     }
@@ -67,7 +80,9 @@ export class ChatService {
       const document = documents[i];
       const score = Math.max(0, 1 - i * 0.1);
 
-      this.logger.debug(`Result[${i}]: metadata keys=${Object.keys(metadata).join(',')}, hasImageId=${!!metadata.imageId}, hasDocumentId=${!!metadata.documentId}`);
+      this.logger.debug(
+        `Result[${i}]: metadata keys=${Object.keys(metadata).join(',')}, hasImageId=${!!metadata.imageId}, hasDocumentId=${!!metadata.documentId}`,
+      );
 
       if (metadata.imageId) {
         // Image result
@@ -137,7 +152,9 @@ export class ChatService {
       }
     }
 
-    this.logger.log(`Context built: ${documentContextParts.length} doc chunks, ${imageContextParts.length} image parts, ${images.length} images, ${sources.length} sources`);
+    this.logger.log(
+      `Context built: ${documentContextParts.length} doc chunks, ${imageContextParts.length} image parts, ${images.length} images, ${sources.length} sources`,
+    );
 
     // 4. Build LLM messages
     const messages: { role: string; content: string }[] = [];
@@ -149,7 +166,7 @@ export class ChatService {
     const contextParts: string[] = [];
     if (documentContextParts.length > 0 || imageContextParts.length > 0) {
       contextParts.push(
-        'Use the following context to answer the user\'s question. If the context doesn\'t contain relevant information, say so honestly.',
+        "Use the following context to answer the user's question. If the context doesn't contain relevant information, say so honestly.",
       );
 
       if (documentContextParts.length > 0) {
@@ -158,8 +175,9 @@ export class ChatService {
       }
 
       if (imageContextParts.length > 0) {
-        contextParts.push('--- Image Context ---');
-        contextParts.push(imageContextParts.join('\n\n'));
+        contextParts.push(
+          `--- Image Context ---\n ${imageContextParts.length} images were found and shown to user.`,
+        );
       }
 
       messages.push({ role: 'system', content: contextParts.join('\n\n') });
@@ -176,9 +194,18 @@ export class ChatService {
     // Current user message
     messages.push({ role: 'user', content: dto.message });
 
-    this.logger.log(`Calling Ollama chat with ${messages.length} messages (roles: ${messages.map((m) => m.role).join(', ')})`);
+    this.logger.log(
+      `Prepared ${messages.length} messages (roles: ${messages.map((m) => m.role).join(', ')})`,
+    );
 
-    // 5. Call Ollama
+    return { messages, images, sources };
+  }
+
+  async processMessage(dto: ChatRequestDto): Promise<ChatResponseDto> {
+    const { messages, images, sources } = await this.prepareChat(dto);
+
+    this.logger.log(`Calling Ollama chat with ${messages.length} messages`);
+
     try {
       const llmResult = await this.ollamaService.chat(messages);
       this.logger.log(`Ollama response received: ${llmResult.response.substring(0, 100)}...`);
@@ -191,6 +218,36 @@ export class ChatService {
     } catch (error) {
       this.logger.error(`Ollama chat failed: ${error}`);
       throw error;
+    }
+  }
+
+  async *processMessageStream(dto: ChatRequestDto): AsyncGenerator<StreamEvent> {
+    let prepared: PreparedChat;
+
+    try {
+      prepared = await this.prepareChat(dto);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      yield { event: 'error', data: { message } };
+      return;
+    }
+
+    const { messages, images, sources } = prepared;
+
+    yield { event: 'sources', data: { images, sources } };
+
+    try {
+      for await (const chunk of this.ollamaService.chatStream(messages)) {
+        if (chunk.content) {
+          yield { event: 'token', data: { content: chunk.content } };
+        }
+      }
+
+      yield { event: 'done', data: {} };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Ollama chat stream failed: ${message}`);
+      yield { event: 'error', data: { message } };
     }
   }
 }

@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ChatHistoryMessage } from '@/api/chat';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSendMessage } from '@/hooks/useChat';
+import { useStreamChat } from '@/hooks/useChat';
 import { AgentSelector } from './AgentSelector';
 import { MessageInput } from './MessageInput';
 import { type ChatMessage, MessageList } from './MessageList';
 
 export function ChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [agentId, setAgentId] = useState('');
-  const sendMessage = useSendMessage();
+  const [agentId, setAgentId] = useState(() => localStorage.getItem('agent:chat') ?? '');
+  const { streamState, sendStream, abort } = useStreamChat();
+  const assistantMessageRef = useRef<ChatMessage | null>(null);
 
   const handleAgentChange = (value: string) => {
+    abort();
     setAgentId(value);
+    localStorage.setItem('agent:chat', value);
     setMessages([]);
   };
 
@@ -30,31 +33,56 @@ export function ChatWindow() {
       content: msg.content,
     }));
 
-    try {
-      const result = await sendMessage.mutateAsync({
-        message: content,
-        agentId,
-        history,
-      });
+    const assistantId = (Date.now() + 1).toString();
+    assistantMessageRef.current = null;
 
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        content: result.response,
-        role: 'assistant',
-        images: result.images,
-        sources: result.sources,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error('Chat send failed:', error);
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        content: `Sorry, something went wrong: ${error instanceof Error ? error.message : String(error)}`,
-        role: 'assistant',
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    }
+    await sendStream(
+      { message: content, agentId, history },
+      {
+        onSources: (data) => {
+          const msg: ChatMessage = {
+            id: assistantId,
+            content: '',
+            role: 'assistant',
+            images: data.images,
+            sources: data.sources,
+          };
+          assistantMessageRef.current = msg;
+          setMessages((prev) => [...prev, msg]);
+        },
+        onToken: (data) => {
+          if (assistantMessageRef.current) {
+            assistantMessageRef.current = {
+              ...assistantMessageRef.current,
+              content: assistantMessageRef.current.content + data.content,
+            };
+            const updated = assistantMessageRef.current;
+            setMessages((prev) => prev.map((m) => (m.id === assistantId ? updated : m)));
+          }
+        },
+        onDone: () => {
+          assistantMessageRef.current = null;
+        },
+        onError: (data) => {
+          if (assistantMessageRef.current) {
+            assistantMessageRef.current = {
+              ...assistantMessageRef.current,
+              content: `${assistantMessageRef.current.content}\n\nError: ${data.message}`,
+            };
+            const updated = assistantMessageRef.current;
+            setMessages((prev) => prev.map((m) => (m.id === assistantId ? updated : m)));
+          } else {
+            const errorMessage: ChatMessage = {
+              id: assistantId,
+              content: `Sorry, something went wrong: ${data.message}`,
+              role: 'assistant',
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+          }
+          assistantMessageRef.current = null;
+        },
+      },
+    );
   };
 
   return (
@@ -68,16 +96,13 @@ export function ChatWindow() {
           <AgentSelector
             value={agentId}
             onChange={handleAgentChange}
-            disabled={sendMessage.isPending}
+            disabled={streamState.isStreaming}
           />
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-        <MessageList messages={messages} isTyping={sendMessage.isPending} />
-        <MessageInput
-          onSend={handleSend}
-          disabled={sendMessage.isPending || !agentId}
-        />
+        <MessageList messages={messages} isTyping={streamState.isPreprocessing} />
+        <MessageInput onSend={handleSend} disabled={streamState.isStreaming || !agentId} />
       </CardContent>
     </Card>
   );

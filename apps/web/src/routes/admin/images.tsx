@@ -70,7 +70,9 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
 
 function ImagesPage() {
   const { data: agents, isLoading: agentsLoading } = useAgents();
-  const [filterAgentId, setFilterAgentId] = useState<string | undefined>();
+  const [filterAgentId, setFilterAgentId] = useState<string | undefined>(
+    () => localStorage.getItem('agent:images:filter') ?? undefined,
+  );
   const { data: images, isLoading, error } = useImages(filterAgentId);
   const uploadMutation = useUploadImage();
   const deleteMutation = useDeleteImage();
@@ -82,7 +84,7 @@ function ImagesPage() {
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
-      agentId: '',
+      agentId: localStorage.getItem('agent:images:upload') ?? '',
     },
   });
 
@@ -182,7 +184,10 @@ function ImagesPage() {
                     ) : (
                       <div className="flex gap-2">
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            localStorage.setItem('agent:images:upload', value);
+                          }}
                           value={field.value}
                           disabled={agentsLoading}
                         >
@@ -239,7 +244,12 @@ function ImagesPage() {
             <div className="w-48">
               <Select
                 value={filterAgentId || 'all'}
-                onValueChange={(value) => setFilterAgentId(value === 'all' ? undefined : value)}
+                onValueChange={(value) => {
+                  const next = value === 'all' ? undefined : value;
+                  setFilterAgentId(next);
+                  if (next) localStorage.setItem('agent:images:filter', next);
+                  else localStorage.removeItem('agent:images:filter');
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by agent" />
