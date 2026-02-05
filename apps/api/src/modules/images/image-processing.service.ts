@@ -41,15 +41,16 @@ export class ImageProcessingService {
       const fileBuffer = await this.storage.getFile(IMAGES_BUCKET, image.minioKey);
 
       // Generate description using vision model
-      const description = await this.ollama.generateImageDescription(
+      const visionResult = await this.ollama.generateImageDescription(
         fileBuffer,
         image.agent.visionPromptInstruction ?? undefined,
       );
-      this.logger.log(`Generated description for image: ${description.subject}`);
 
-      // Convert description to embedding text
-      const embeddingText = this.ollama.descriptionToEmbeddingText(description);
-      this.logger.log(`Embedding text: ${embeddingText}`);
+      const { embeddingText, structured, rawResponse } = visionResult;
+      this.logger.log(
+        `Generated description: ${structured ? `structured (${structured.subject})` : 'raw text'}`,
+      );
+      this.logger.log(`Embedding text (first 200 chars): ${embeddingText.substring(0, 200)}...`);
 
       // Generate embedding
       const embedding = await this.ollama.generateEmbedding(embeddingText);
@@ -69,20 +70,23 @@ export class ImageProcessingService {
             agentId: image.agentId,
             filename: image.filename,
             mimeType: image.mimeType,
-            subject: description.subject,
-            style: description.style,
+            subject: structured?.subject ?? 'Custom description',
+            style: structured?.style ?? 'Custom',
             type: 'image',
           },
         ],
         [`image_${image.id}`],
       );
 
+      // Store description - either structured JSON or raw text
+      const descriptionToStore = structured ?? { rawText: rawResponse };
+
       // Update image status to COMPLETED
       await this.prisma.image.update({
         where: { id: imageId },
         data: {
           status: DocumentStatus.COMPLETED,
-          description: description as unknown as object,
+          description: descriptionToStore as object,
           processedAt: new Date(),
           error: null,
         },

@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { SkipAuth } from '../../common/decorators/skip-auth.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AgentsService } from './agents.service';
 import {
@@ -35,6 +36,17 @@ import {
 @Controller('agents')
 export class AgentsController {
   constructor(private readonly agentsService: AgentsService) {}
+
+  @Get('active')
+  @SkipAuth()
+  @ApiOperation({ summary: 'Get all active agents (public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of active agents',
+  })
+  async findAllActive() {
+    return this.agentsService.findAllActive();
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get all agents (with optional pagination)' })

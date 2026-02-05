@@ -4,9 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IMAGES_BUCKET } from '../../providers/storage/storage.config';
 import { StorageService } from '../../providers/storage/storage.service';
+import { VectorService } from '../../providers/vector/vector.service';
 import { AgentsService } from '../agents/agents.service';
-import { ImageProcessingService } from './image-processing.service';
 import type { GetImagesQueryDto, UploadImageDto } from './dto/image.dto';
+import { ImageProcessingService } from './image-processing.service';
 
 @Injectable()
 export class ImagesService {
@@ -15,6 +16,7 @@ export class ImagesService {
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
+    private vectorService: VectorService,
     private agentsService: AgentsService,
     private processingService: ImageProcessingService,
   ) {}
@@ -95,14 +97,21 @@ export class ImagesService {
   async delete(id: string) {
     const image = await this.prisma.image.findUnique({
       where: { id },
+      include: { agent: { select: { slug: true } } },
     });
 
     if (!image) {
       throw new NotFoundException(`Image with ID ${id} not found`);
     }
 
+    // Delete from MinIO
     await this.storage.deleteFile(IMAGES_BUCKET, image.minioKey);
 
+    // Delete from vector database
+    const collectionName = `agent_${image.agent.slug}`;
+    await this.vectorService.deleteDocuments(collectionName, [`image_${id}`]);
+
+    // Delete from PostgreSQL
     await this.prisma.image.delete({
       where: { id },
     });

@@ -15,13 +15,13 @@ function RootComponent() {
           <Link to="/" className="text-xl font-bold text-foreground">
             RAG Demo
           </Link>
-          <nav>
+          <nav className="underline hover:no-underline">
             {isInAdmin ? (
               <Link
                 to="/"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                Go to Chat
+                Open Chat
               </Link>
             ) : (
               <Link

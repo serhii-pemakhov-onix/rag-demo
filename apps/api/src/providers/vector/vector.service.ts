@@ -1,6 +1,36 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CloudClient, type Metadata } from 'chromadb';
+import { CloudClient, type Collection, type Metadata, type EmbeddingFunction } from 'chromadb';
+
+// No-op embedding function since we provide embeddings directly from Ollama
+const noopEmbeddingFunction: EmbeddingFunction = {
+  generate: async () => [],
+};
+
+/**
+ * Suppress the chromadb 3.x "No embedding function configuration found for
+ * collection schema deserialization" console.warn that fires every time
+ * getCollection / getOrCreateCollection is called on a collection created
+ * without a server-side embedding-function config.  The warning is harmless
+ * because we always supply embeddings directly from Ollama.
+ */
+async function suppressEfWarning<T>(fn: () => Promise<T>): Promise<T> {
+  const origWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('No embedding function configuration found')
+    ) {
+      return; // swallow
+    }
+    origWarn.apply(console, args);
+  };
+  try {
+    return await fn();
+  } finally {
+    console.warn = origWarn;
+  }
+}
 
 @Injectable()
 export class VectorService implements OnModuleInit {
@@ -16,9 +46,16 @@ export class VectorService implements OnModuleInit {
     });
   }
 
+  private getCollection(name: string): Promise<Collection> {
+    return suppressEfWarning(() =>
+      this.client.getCollection({ name, embeddingFunction: noopEmbeddingFunction }),
+    );
+  }
+
   async createCollection(name: string) {
-    const collection = await this.client.getOrCreateCollection({ name });
-    return collection;
+    return suppressEfWarning(() =>
+      this.client.getOrCreateCollection({ name, embeddingFunction: noopEmbeddingFunction }),
+    );
   }
 
   async addDocuments(
@@ -28,7 +65,7 @@ export class VectorService implements OnModuleInit {
     metadatas?: Metadata[],
     ids?: string[],
   ) {
-    const collection = await this.client.getCollection({ name: collectionName });
+    const collection = await this.getCollection(collectionName);
     const documentIds = ids || documents.map((_, i) => `doc_${Date.now()}_${i}`);
 
     await collection.add({
@@ -42,7 +79,7 @@ export class VectorService implements OnModuleInit {
   }
 
   async query(collectionName: string, embedding: number[], topK = 5) {
-    const collection = await this.client.getCollection({ name: collectionName });
+    const collection = await this.getCollection(collectionName);
 
     const results = await collection.query({
       queryEmbeddings: [embedding],
@@ -50,6 +87,17 @@ export class VectorService implements OnModuleInit {
     });
 
     return results;
+  }
+
+  async deleteDocuments(collectionName: string, ids: string[]) {
+    try {
+      const collection = await this.getCollection(collectionName);
+      await collection.delete({ ids });
+      return { collection: collectionName, deletedCount: ids.length };
+    } catch {
+      // Collection might not exist if image was never processed
+      return { collection: collectionName, deletedCount: 0 };
+    }
   }
 
   async deleteCollection(name: string) {

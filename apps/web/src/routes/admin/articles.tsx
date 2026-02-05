@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import type { DocumentStatus } from '@/api/admin';
 import { AddAgentDialog } from '@/components/admin/AddAgentDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
@@ -27,12 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  useAgents,
-  useArticles,
-  useDeleteArticle,
-  useUploadArticle,
-} from '@/hooks/useArticles';
+import { useAgents, useArticles, useDeleteArticle, useUploadArticle } from '@/hooks/useArticles';
 
 export const Route = createFileRoute('/admin/articles')({
   component: ArticlesPage,
@@ -49,19 +45,27 @@ const uploadSchema = z.object({
 type UploadFormValues = z.infer<typeof uploadSchema>;
 
 function StatusBadge({ status }: { status: DocumentStatus }) {
-  const styles: Record<DocumentStatus, string> = {
-    PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    PROCESSING: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    COMPLETED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    FAILED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  const variants: Record<
+    DocumentStatus,
+    { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }
+  > = {
+    PENDING: {
+      variant: 'outline',
+      className: 'border-yellow-500 text-yellow-700 dark:text-yellow-400',
+    },
+    PROCESSING: { variant: 'default' },
+    COMPLETED: {
+      variant: 'outline',
+      className: 'border-green-500 text-green-700 dark:text-green-400',
+    },
+    FAILED: { variant: 'destructive' },
   };
 
+  const { variant, className } = variants[status];
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[status]}`}
-    >
+    <Badge variant={variant} className={className}>
       {status}
-    </span>
+    </Badge>
   );
 }
 

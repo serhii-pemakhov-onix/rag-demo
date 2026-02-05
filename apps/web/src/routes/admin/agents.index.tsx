@@ -2,9 +2,18 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { AddAgentDialog } from '@/components/admin/AddAgentDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useAgentsPaginated, useDeleteAgent, useUpdateAgent } from '@/hooks/useAgents';
 
 export const Route = createFileRoute('/admin/agents/')({
@@ -13,15 +22,7 @@ export const Route = createFileRoute('/admin/agents/')({
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-        isActive
-          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-      }`}
-    >
-      {isActive ? 'Active' : 'Inactive'}
-    </span>
+    <Badge variant={isActive ? 'default' : 'secondary'}>{isActive ? 'Active' : 'Inactive'}</Badge>
   );
 }
 
@@ -87,34 +88,33 @@ function AgentsIndexPage() {
           {agents.length > 0 && (
             <>
               <div className="border rounded-md">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="text-left p-3 font-medium">Name</th>
-                      <th className="text-left p-3 font-medium">Slug</th>
-                      <th className="text-left p-3 font-medium hidden md:table-cell">
-                        Description
-                      </th>
-                      <th className="text-left p-3 font-medium">Status</th>
-                      <th className="text-right p-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead className="hidden md:table-cell">Description</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {agents.map((agent) => (
-                      <tr key={agent.id} className="border-b last:border-b-0">
-                        <td className="p-3 font-medium">{agent.name}</td>
-                        <td className="p-3 text-muted-foreground">{agent.slug}</td>
-                        <td className="p-3 text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
+                      <TableRow key={agent.id}>
+                        <TableCell className="font-medium">{agent.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{agent.slug}</TableCell>
+                        <TableCell className="text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
                           {agent.description || '-'}
-                        </td>
-                        <td className="p-3">
+                        </TableCell>
+                        <TableCell>
                           <StatusBadge isActive={agent.isActive} />
-                        </td>
-                        <td className="p-3 text-right">
+                        </TableCell>
+                        <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="w-24"
                               onClick={() => handleToggleActive(agent.id, agent.isActive)}
                               disabled={updateMutation.isPending}
                             >
@@ -133,11 +133,11 @@ function AgentsIndexPage() {
                               Delete
                             </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
 
               {meta && meta.totalPages > 1 && (

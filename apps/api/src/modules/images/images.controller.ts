@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -25,7 +26,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
+import type { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { SkipAuth } from '../../common/decorators/skip-auth.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ImageValidationPipe } from '../../common/pipes/image-validation.pipe';
 import { ImagesService } from './images.service';
@@ -37,14 +40,14 @@ import {
 } from './dto/image.dto';
 
 @ApiTags('images')
-@ApiBearerAuth('access-token')
 @Controller('images')
-@UseGuards(RolesGuard)
-@Roles(Role.ADMIN)
 export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get all images' })
   @ApiQuery({
     name: 'agentId',
@@ -68,7 +71,29 @@ export class ImagesController {
     return this.imagesService.findAll(query);
   }
 
+  @Get(':id/file')
+  @SkipAuth()
+  @ApiOperation({ summary: 'Get image file content' })
+  @ApiParam({ name: 'id', description: 'Image ID' })
+  @ApiResponse({ status: 200, description: 'Image file content' })
+  @ApiResponse({ status: 404, description: 'Image not found' })
+  async getFile(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const image = await this.imagesService.findById(id);
+    const buffer = await this.imagesService.getFileContent(id);
+
+    res.set({
+      'Content-Type': image.mimeType,
+      'Content-Length': buffer.length.toString(),
+      'Cache-Control': 'public, max-age=86400',
+    });
+
+    res.send(buffer);
+  }
+
   @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get an image by ID' })
   @ApiParam({ name: 'id', description: 'Image ID' })
   @ApiResponse({
@@ -84,6 +109,9 @@ export class ImagesController {
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload a new image' })
@@ -123,6 +151,9 @@ export class ImagesController {
   }
 
   @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Delete an image' })
   @ApiParam({ name: 'id', description: 'Image ID' })
   @ApiResponse({ status: 200, description: 'Image deleted successfully' })

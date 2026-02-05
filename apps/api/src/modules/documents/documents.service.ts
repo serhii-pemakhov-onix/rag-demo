@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { DOCUMENTS_BUCKET } from '../../providers/storage/storage.config';
 import { StorageService } from '../../providers/storage/storage.service';
 import { AgentsService } from '../agents/agents.service';
+import { RagService } from '../rag/rag.service';
 import { DocumentProcessingService } from './document-processing.service';
 import type { GetDocumentsQueryDto, UploadDocumentDto } from './dto/document.dto';
 
@@ -17,6 +18,7 @@ export class DocumentsService {
     private storage: StorageService,
     private agentsService: AgentsService,
     private processingService: DocumentProcessingService,
+    private ragService: RagService,
   ) {}
 
   async findAll(query?: GetDocumentsQueryDto) {
@@ -97,14 +99,27 @@ export class DocumentsService {
   async delete(id: string) {
     const document = await this.prisma.document.findUnique({
       where: { id },
+      include: { agent: { select: { slug: true } } },
     });
 
     if (!document) {
       throw new NotFoundException(`Document with ID ${id} not found`);
     }
 
+    // Delete from MinIO
     await this.storage.deleteFile(DOCUMENTS_BUCKET, document.minioKey);
 
+    // Delete from vector database if document was processed
+    if (document.chunkCount && document.chunkCount > 0) {
+      await this.ragService.deleteDocumentChunks(
+        document.agent.slug,
+        document.id,
+        document.chunkCount,
+      );
+      this.logger.log(`Deleted ${document.chunkCount} chunks from vector database`);
+    }
+
+    // Delete from PostgreSQL
     await this.prisma.document.delete({
       where: { id },
     });

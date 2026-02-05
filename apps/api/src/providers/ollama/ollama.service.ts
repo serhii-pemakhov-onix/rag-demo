@@ -19,6 +19,15 @@ export interface ImageDescription {
   style: string;
 }
 
+export interface VisionResult {
+  /** Structured description (only when using default prompt) */
+  structured: ImageDescription | null;
+  /** Text for embedding - either raw response or converted structured description */
+  embeddingText: string;
+  /** Raw response from vision model */
+  rawResponse: string;
+}
+
 interface OllamaChatResponse {
   message: {
     role: string;
@@ -32,6 +41,7 @@ export class OllamaService implements OnModuleInit {
   private baseUrl: string;
   private embeddingModel: string;
   private visionModel: string;
+  private chatModel: string;
 
   constructor(private configService: ConfigService) {
     const host = this.configService.get<string>('OLLAMA_HOST', 'localhost');
@@ -39,6 +49,7 @@ export class OllamaService implements OnModuleInit {
     this.baseUrl = `http://${host}:${port}`;
     this.embeddingModel = this.configService.get<string>('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text');
     this.visionModel = this.configService.get<string>('OLLAMA_VISION_MODEL', 'llava');
+    this.chatModel = this.configService.get<string>('OLLAMA_CHAT_MODEL', 'llama3.2');
   }
 
   async onModuleInit() {
@@ -108,8 +119,9 @@ export class OllamaService implements OnModuleInit {
   async generateCompletion(
     prompt: string,
     context?: string,
-    model = 'llama3.2',
+    model?: string,
   ): Promise<{ response: string }> {
+    model = model ?? this.chatModel;
     const fullPrompt = context ? `Context:\n${context}\n\nQuestion: ${prompt}` : prompt;
 
     const response = await fetch(`${this.baseUrl}/api/generate`, {
@@ -133,8 +145,9 @@ export class OllamaService implements OnModuleInit {
 
   async chat(
     messages: { role: string; content: string }[],
-    model = 'llama3.2',
+    model?: string,
   ): Promise<{ response: string }> {
+    model = model ?? this.chatModel;
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -157,11 +170,13 @@ export class OllamaService implements OnModuleInit {
   async generateImageDescription(
     imageBuffer: Buffer,
     agentInstruction?: string,
-  ): Promise<ImageDescription> {
+  ): Promise<VisionResult> {
     const base64Image = imageBuffer.toString('base64');
+    const useCustomInstruction = !!agentInstruction;
 
-    const basePrompt = `Analyze this image and provide a structured description in JSON format:
+    const defaultPrompt = `Analyze this image and provide a structured description in JSON format.
 
+Output format (respond with valid JSON only):
 {
   "subject": "Main subject or focus of the image",
   "setting": "Location, environment, or background",
@@ -170,11 +185,13 @@ export class OllamaService implements OnModuleInit {
   "text": "Any visible text, or null if none",
   "mood": "Emotional tone or atmosphere",
   "style": "Type: photo, illustration, diagram, screenshot, etc."
-}
+}`;
 
-Respond with valid JSON only.`;
+    const prompt = agentInstruction || defaultPrompt;
 
-    const prompt = agentInstruction ? `${agentInstruction}\n\n${basePrompt}` : basePrompt;
+    this.logger.debug(`Calling vision model: ${this.visionModel}`);
+    this.logger.debug(`Image size: ${imageBuffer.length} bytes`);
+    this.logger.debug(`Using ${useCustomInstruction ? 'agent vision instruction' : 'default prompt'}`);
 
     const response = await fetch(`${this.baseUrl}/api/generate`, {
       method: 'POST',
@@ -188,14 +205,27 @@ Respond with valid JSON only.`;
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Ollama vision failed: ${error}`);
+      const errorText = await response.text();
+      this.logger.error(`Ollama vision failed with status ${response.status}: ${errorText}`);
+      throw new Error(`Ollama vision failed: ${errorText}`);
     }
 
     const data: OllamaGenerateResponse = await response.json();
+    this.logger.debug(`Vision response received: ${data.response.substring(0, 100)}...`);
+    const rawResponse = data.response.trim();
 
-    // Parse JSON from response, handling potential markdown code blocks
-    let jsonStr = data.response.trim();
+    // If using custom agent instruction, use raw text directly for embedding
+    if (useCustomInstruction) {
+      this.logger.log('Using raw text response for embedding (custom agent instruction)');
+      return {
+        structured: null,
+        embeddingText: rawResponse,
+        rawResponse,
+      };
+    }
+
+    // For default prompt, parse JSON response
+    let jsonStr = rawResponse;
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
     } else if (jsonStr.startsWith('```')) {
@@ -207,18 +237,18 @@ Respond with valid JSON only.`;
     jsonStr = jsonStr.trim();
 
     try {
-      return JSON.parse(jsonStr) as ImageDescription;
-    } catch {
-      this.logger.warn(`Failed to parse vision response as JSON: ${data.response}`);
-      // Return a fallback description if parsing fails
+      const structured = JSON.parse(jsonStr) as ImageDescription;
       return {
-        subject: 'Unknown',
-        setting: 'Unknown',
-        objects: [],
-        colors: [],
-        text: null,
-        mood: 'Unknown',
-        style: 'Unknown',
+        structured,
+        embeddingText: this.descriptionToEmbeddingText(structured),
+        rawResponse,
+      };
+    } catch {
+      this.logger.warn(`Failed to parse vision response as JSON, using raw text: ${rawResponse}`);
+      return {
+        structured: null,
+        embeddingText: rawResponse,
+        rawResponse,
       };
     }
   }

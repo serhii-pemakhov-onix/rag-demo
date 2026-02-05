@@ -182,4 +182,14 @@ export class RagService {
       metadatas: (results.metadatas?.[0] as Record<string, unknown>[]) || [],
     };
   }
+
+  async deleteDocumentChunks(
+    agentSlug: string,
+    documentId: string,
+    chunkCount: number,
+  ): Promise<{ deletedCount: number }> {
+    const collectionName = `agent_${agentSlug}`;
+    const ids = Array.from({ length: chunkCount }, (_, i) => `${documentId}_chunk_${i}`);
+    return this.vector.deleteDocuments(collectionName, ids);
+  }
 }

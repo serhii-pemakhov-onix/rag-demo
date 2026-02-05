@@ -8,17 +8,42 @@ Image description generates structured textual descriptions of uploaded images u
 
 ### Purpose
 
-- **Embedding only**: Descriptions are not displayed to users
+- **Embedding only**: Descriptions are stored but primarily used for RAG retrieval
 - Used internally for RAG retrieval when user queries relate to image content
 - Enables searching images by content (e.g., "photos of mountains" finds mountain images)
+- Descriptions are also stored in PostgreSQL for display in admin UI
 
 ### Vision Model
 
 Configurable via environment variable:
 
 ```bash
-OLLAMA_VISION_MODEL=x/z-image-turbo:latest
+OLLAMA_VISION_MODEL=llava
 ```
+
+### Agent-Specific Vision Instructions
+
+Each agent can have a custom `visionPromptInstruction` that **replaces** the default vision prompt entirely. This allows different agents to have complete control over how images are analyzed:
+
+- **If `visionPromptInstruction` is set**: Uses ONLY the agent's custom instruction, raw text response is used directly for embedding
+- **If `visionPromptInstruction` is empty**: Uses the default structured JSON prompt
+
+Example agent configurations:
+
+```
+Agent: Pet Store Bot
+visionPromptInstruction: "Describe this pet image in detail. Include breed identification, physical traits, approximate age, health condition indicators, and any context about the setting or accessories visible."
+
+Agent: Technical Documentation Bot
+visionPromptInstruction: "Analyze this technical diagram. Describe the components, their relationships, data flow, and any labels or text visible. Focus on architecture and system design aspects."
+
+Agent: Product Catalog Bot
+visionPromptInstruction: "Describe this product image for a catalog. Include product type, brand if visible, colors, features, condition, and any promotional text or pricing shown."
+```
+
+**Output modes**:
+- **Custom instruction**: Raw text response used directly for embedding (stored as `{ rawText: "..." }`)
+- **Default prompt**: Structured JSON parsed and converted to embedding text (stored as structured `ImageDescription`)
 
 ### Structured Description Format
 
@@ -60,7 +85,7 @@ The structured description is converted to natural language for embedding:
 Subject: Mountain landscape at sunset. Setting: Mountain range with valley, golden hour lighting. Objects: mountains, trees, clouds, sun. Colors: orange, purple, gold, dark blue. Mood: Peaceful, majestic, serene. Style: Photograph, landscape.
 ```
 
-This text is then embedded using `nomic-embed-text-v2-moe` with prefix `search_document:`.
+This text is then embedded using `nomic-embed-text` (configurable via `OLLAMA_EMBEDDING_MODEL`) with prefix `search_document:`.
 
 ## Processing Flow
 
@@ -68,32 +93,40 @@ This text is then embedded using `nomic-embed-text-v2-moe` with prefix `search_d
 ┌─────────────────────────────────────────────────────────────────┐
 │                   Image Upload (Synchronous)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. Validate image (size, type)                                  │
-│  2. Upload to MinIO                                              │
+│  1. Validate image (size ≤ 5MB, type: jpeg/png/webp/gif)        │
+│  2. Upload to MinIO (key: {agentId}/{imageId}/{filename})       │
 │  3. Create image record (status: PENDING)                        │
-│  4. Queue background job                                         │
+│  4. Trigger async processing (non-blocking)                      │
 │  5. Return 202 Accepted                                          │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│               Description Generation (Async Job)                 │
+│               Description Generation (Async)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. Fetch image from MinIO                                       │
-│  2. Send to Ollama vision model with structured prompt           │
-│  3. Parse structured response                                    │
-│  4. Convert to embedding text                                    │
-│  5. Generate embedding (nomic-embed-text-v2-moe)                │
-│  6. Store in Chroma with metadata                                │
-│  7. Update image status: COMPLETED                               │
+│  1. Update status: PROCESSING                                    │
+│  2. Fetch image from MinIO                                       │
+│  3. Fetch agent's visionPromptInstruction                        │
+│  4. Send to Ollama vision model with prompt:                     │
+│     - IF visionPromptInstruction exists: use it exclusively      │
+│     - ELSE: use default structured JSON prompt                   │
+│  5. Process response:                                            │
+│     - Custom instruction: use raw text directly for embedding    │
+│     - Default prompt: parse JSON, convert to embedding text      │
+│  6. Generate embedding (nomic-embed-text)                        │
+│  7. Store in Chroma (collection: agent_{slug})                   │
+│  8. Update status: COMPLETED, store description                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Vision Model Prompt
 
-```
-Analyze this image and provide a structured description in JSON format:
+### Default Prompt (when agent has no visionPromptInstruction)
 
+```
+Analyze this image and provide a structured description in JSON format.
+
+Output format (respond with valid JSON only):
 {
   "subject": "Main subject or focus of the image",
   "setting": "Location, environment, or background",
@@ -103,9 +136,17 @@ Analyze this image and provide a structured description in JSON format:
   "mood": "Emotional tone or atmosphere",
   "style": "Type: photo, illustration, diagram, screenshot, etc."
 }
-
-Respond with valid JSON only.
 ```
+
+### Custom Prompt (when agent has visionPromptInstruction)
+
+The agent's `visionPromptInstruction` is used as the complete prompt. The raw text response from the vision model is used directly for embedding - no JSON parsing is attempted.
+
+This allows agents to use natural language prompts like:
+- "Describe this dog image including breed, age, and physical characteristics"
+- "Analyze this technical diagram and explain the architecture"
+
+The raw text response provides richer, more natural descriptions for semantic search.
 
 ## Data Model
 
@@ -158,12 +199,14 @@ Respond with valid JSON only.
 
 ## Acceptance Criteria
 
-- [ ] Images are processed asynchronously after upload
-- [ ] Vision model generates structured JSON description
-- [ ] Description is converted to natural language for embedding
-- [ ] Embeddings are stored in Chroma with agentId filter
-- [ ] Failed processing sets status to FAILED with error
-- [ ] Vision model is configurable via OLLAMA_VISION_MODEL env var
+- [x] Images are processed asynchronously after upload
+- [x] Vision model generates structured JSON description
+- [x] Agent's `visionPromptInstruction` replaces default prompt, raw text used for embedding
+- [x] Description is converted to natural language for embedding
+- [x] Embeddings are stored in Chroma with agentId filter
+- [x] Failed processing sets status to FAILED with error
+- [x] Vision model is configurable via OLLAMA_VISION_MODEL env var
+- [x] Image deletion removes embeddings from vector database
 
 ## Technical Notes
 
@@ -171,21 +214,26 @@ Respond with valid JSON only.
 
 | Error | Handling |
 |-------|----------|
-| Vision model unavailable | Retry 3x, then mark FAILED |
-| Invalid JSON response | Retry with simplified prompt, then mark FAILED |
-| Image too large for model | Resize before sending |
+| Vision model unavailable | Mark FAILED with error message |
+| Invalid JSON response (default prompt) | Use raw text for embedding, store as `{ rawText: "..." }` |
 | Unsupported format | Reject on upload validation |
 
 ### Image Preprocessing
 
 Before sending to vision model:
-- Resize if larger than 1024px on longest side
 - Convert to base64 for Ollama API
+
+### Deletion Cleanup
+
+When an image is deleted:
+1. File removed from MinIO storage
+2. Embedding removed from Chroma vector database (collection: `agent_{slug}`, id: `image_{imageId}`)
+3. Record removed from PostgreSQL
 
 ### Environment Variables
 
 ```bash
-OLLAMA_VISION_MODEL=x/z-image-turbo:latest
+OLLAMA_VISION_MODEL=llava  # or any Ollama model with vision capability
 ```
 
 ## Dependencies
