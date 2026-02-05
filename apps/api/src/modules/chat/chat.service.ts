@@ -176,7 +176,10 @@ export class ChatService {
 
       if (imageContextParts.length > 0) {
         contextParts.push(
-          `--- Image Context ---\n ${imageContextParts.length} images were found and shown to user.`,
+          '--- Image Context ---\n' +
+            'IMPORTANT: The following images have ALREADY been displayed to the user above your text response. ' +
+            'Do NOT say you cannot show images. Instead, refer to them naturally (e.g. "As shown in the image above...").\n\n' +
+            imageContextParts.join('\n\n'),
         );
       }
 
@@ -192,7 +195,17 @@ export class ChatService {
     }
 
     // Current user message
-    messages.push({ role: 'user', content: dto.message });
+    if (images.length > 0) {
+      messages.push({
+        role: 'user',
+        content:
+          `${dto.message}\n\n` +
+          `[Note: ${images.length} relevant image(s) are already displayed in the chat UI. ` +
+          'Do not say you cannot display or show images. Describe what the images depict based on the image context provided.]',
+      });
+    } else {
+      messages.push({ role: 'user', content: dto.message });
+    }
 
     this.logger.log(
       `Prepared ${messages.length} messages (roles: ${messages.map((m) => m.role).join(', ')})`,

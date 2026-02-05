@@ -6,9 +6,10 @@ interface MessageProps {
   role: 'user' | 'assistant';
   images?: ChatImage[];
   sources?: ChatSource[];
+  isTyping?: boolean;
 }
 
-export function Message({ content, role, images, sources }: MessageProps) {
+export function Message({ content, role, images, sources, isTyping }: MessageProps) {
   const isUser = role === 'user';
 
   return (
@@ -34,8 +35,15 @@ export function Message({ content, role, images, sources }: MessageProps) {
           </div>
         )}
 
-        <p className="whitespace-pre-wrap">{content}</p>
-
+        {!isUser && isTyping && !content ? (
+          <div className="inline-flex gap-1 py-1">
+            <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
+            <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
+            <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" />
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap">{content}</p>
+        )}
       </div>
     </div>
   );

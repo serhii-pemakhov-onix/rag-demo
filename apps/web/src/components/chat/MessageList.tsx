@@ -48,16 +48,17 @@ export function MessageList({ messages, isTyping }: MessageListProps) {
         </div>
       ) : (
         <>
-          {messages.map((message) => (
+          {messages.map((message, index) => (
             <Message
               key={message.id}
               content={message.content}
               role={message.role}
               images={message.images}
               sources={message.sources}
+              isTyping={isTyping && index === messages.length - 1 && message.role === 'assistant'}
             />
           ))}
-          {isTyping && <TypingIndicator />}
+          {isTyping && messages.at(-1)?.role !== 'assistant' && <TypingIndicator />}
         </>
       )}
       <div ref={bottomRef} />
