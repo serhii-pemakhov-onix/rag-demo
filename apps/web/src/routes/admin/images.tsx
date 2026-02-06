@@ -35,7 +35,7 @@ export const Route = createFileRoute('/admin/images')({
 });
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const _ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
 const uploadSchema = z.object({
   agentId: z.string().uuid('Please select an agent'),
@@ -128,15 +128,15 @@ function ImagesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!imageToDelete) return;
+    if (!imageToDelete) { return; }
     await deleteMutation.mutateAsync(imageToDelete);
     setDeleteDialogOpen(false);
     setImageToDelete(null);
   };
 
   const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024) { return `${bytes} B`; }
+    if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)} KB`; }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
@@ -146,7 +146,7 @@ function ImagesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Images</h1>
+      <h1 className="mb-6 font-bold text-2xl">Images</h1>
 
       <Card className="mb-6">
         <CardHeader>
@@ -155,7 +155,7 @@ function ImagesPage() {
         </CardHeader>
         <CardContent>
           {form.formState.errors.root && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+            <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm">
               {form.formState.errors.root.message}
             </div>
           )}
@@ -170,14 +170,14 @@ function ImagesPage() {
                     <FormLabel>Agent</FormLabel>
                     {!agentsLoading && (!agents || agents.length === 0) ? (
                       <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground">No agents available.</p>
+                        <p className="text-muted-foreground text-sm">No agents available.</p>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => setAddAgentOpen(true)}
                         >
-                          <Plus className="h-4 w-4 mr-1" />
+                          <Plus className="mr-1 h-4 w-4" />
                           Create Agent
                         </Button>
                       </div>
@@ -247,8 +247,8 @@ function ImagesPage() {
                 onValueChange={(value) => {
                   const next = value === 'all' ? undefined : value;
                   setFilterAgentId(next);
-                  if (next) localStorage.setItem('agent:images:filter', next);
-                  else localStorage.removeItem('agent:images:filter');
+                  if (next) { localStorage.setItem('agent:images:filter', next); }
+                  else { localStorage.removeItem('agent:images:filter'); }
                 }}
               >
                 <SelectTrigger>
@@ -277,22 +277,22 @@ function ImagesPage() {
               {images.map((image) => (
                 <div
                   key={image.id}
-                  className="flex items-center justify-between p-3 border rounded-md"
+                  className="flex items-center justify-between rounded-md border p-3"
                 >
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{image.filename}</p>
+                      <p className="truncate font-medium">{image.filename}</p>
                       <StatusBadge status={image.status} />
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
+                    <p className="truncate text-muted-foreground text-sm">
                       {image.agent.name} &middot; {formatSize(image.size)}
                     </p>
                     {image.description && (
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      <p className="mt-1 line-clamp-2 text-muted-foreground text-sm">
                         {image.description.subject}
                       </p>
                     )}
-                    {image.error && <p className="text-sm text-destructive mt-1">{image.error}</p>}
+                    {image.error && <p className="mt-1 text-destructive text-sm">{image.error}</p>}
                   </div>
                   <Button
                     variant="destructive"

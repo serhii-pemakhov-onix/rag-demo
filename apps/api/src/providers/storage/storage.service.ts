@@ -69,7 +69,7 @@ export class StorageService implements OnModuleInit {
 
     return new Promise((resolve, reject) => {
       stream.on('data', (obj) => {
-        if (obj.name) files.push(obj.name);
+        if (obj.name) { files.push(obj.name); }
       });
       stream.on('end', () => resolve(files));
       stream.on('error', reject);

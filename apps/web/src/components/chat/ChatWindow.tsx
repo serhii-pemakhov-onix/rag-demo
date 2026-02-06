@@ -88,7 +88,7 @@ export function ChatWindow() {
   };
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card className="flex h-full flex-col">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
@@ -102,7 +102,7 @@ export function ChatWindow() {
           />
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+      <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
         <MessageList messages={messages} isTyping={streamState.isPreprocessing} sendCount={sendCount} />
         <MessageInput onSend={handleSend} disabled={streamState.isStreaming || !agentId} />
       </CardContent>

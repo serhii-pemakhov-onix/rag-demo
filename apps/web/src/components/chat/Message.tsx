@@ -13,13 +13,13 @@ export function Message({ content, role, images, sources, isTyping }: MessagePro
   const isUser = role === 'user';
 
   return (
-    <div className={cn('flex mb-4', isUser ? 'justify-end' : 'justify-start')}>
+    <div className={cn('mb-4 flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[70%] px-4 py-2 rounded-lg',
+          'max-w-[70%] rounded-lg px-4 py-2',
           isUser
-            ? 'bg-primary text-primary-foreground rounded-br-none'
-            : 'bg-muted text-foreground rounded-bl-none',
+            ? 'rounded-br-none bg-primary text-primary-foreground'
+            : 'rounded-bl-none bg-muted text-foreground',
         )}
       >
         {!isUser && images && images.length > 0 && (
@@ -29,7 +29,7 @@ export function Message({ content, role, images, sources, isTyping }: MessagePro
                 key={image.id}
                 src={image.url}
                 alt={image.description}
-                className="rounded-md w-full h-auto object-cover"
+                className="h-auto w-full rounded-md object-cover"
               />
             ))}
           </div>
@@ -37,9 +37,9 @@ export function Message({ content, role, images, sources, isTyping }: MessagePro
 
         {!isUser && isTyping && !content ? (
           <div className="inline-flex gap-1 py-1">
-            <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
-            <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
-            <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
           </div>
         ) : (
           <p className="whitespace-pre-wrap">{content}</p>

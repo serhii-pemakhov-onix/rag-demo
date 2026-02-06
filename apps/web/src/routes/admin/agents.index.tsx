@@ -54,7 +54,7 @@ function AgentsIndexPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!agentToDelete) return;
+    if (!agentToDelete) { return; }
     await deleteMutation.mutateAsync(agentToDelete);
     setDeleteDialogOpen(false);
     setAgentToDelete(null);
@@ -66,10 +66,10 @@ function AgentsIndexPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Agents</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="font-bold text-2xl">Agents</h1>
         <Button onClick={() => setAddAgentOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="mr-2 h-4 w-4" />
           Create
         </Button>
       </div>
@@ -87,7 +87,7 @@ function AgentsIndexPage() {
           )}
           {agents.length > 0 && (
             <>
-              <div className="border rounded-md">
+              <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -103,7 +103,7 @@ function AgentsIndexPage() {
                       <TableRow key={agent.id}>
                         <TableCell className="font-medium">{agent.name}</TableCell>
                         <TableCell className="text-muted-foreground">{agent.slug}</TableCell>
-                        <TableCell className="text-muted-foreground hidden md:table-cell truncate max-w-[200px]">
+                        <TableCell className="hidden max-w-[200px] truncate text-muted-foreground md:table-cell">
                           {agent.description || '-'}
                         </TableCell>
                         <TableCell>
@@ -141,8 +141,8 @@ function AgentsIndexPage() {
               </div>
 
               {meta && meta.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-muted-foreground text-sm">
                     Showing {(page - 1) * limit + 1} to {Math.min(page * limit, meta.total)} of{' '}
                     {meta.total} agents
                   </p>
@@ -153,10 +153,10 @@ function AgentsIndexPage() {
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={!meta.hasPrevious}
                     >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      <ChevronLeft className="mr-1 h-4 w-4" />
                       Prev
                     </Button>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-muted-foreground text-sm">
                       Page {page} of {meta.totalPages}
                     </span>
                     <Button
@@ -166,7 +166,7 @@ function AgentsIndexPage() {
                       disabled={!meta.hasNext}
                     >
                       Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
+                      <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                   </div>
                 </div>

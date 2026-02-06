@@ -35,7 +35,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
           placeholder="Type your message..."
           disabled={disabled}
           rows={1}
-          className="flex-1 resize-none min-h-[40px]"
+          className="min-h-[40px] flex-1 resize-none"
         />
         <Button type="submit" disabled={!input.trim() || disabled}>
           Send

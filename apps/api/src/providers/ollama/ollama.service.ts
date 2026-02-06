@@ -209,7 +209,7 @@ export class OllamaService implements OnModuleInit {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) { break; }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -217,7 +217,7 @@ export class OllamaService implements OnModuleInit {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed) continue;
+          if (!trimmed) { continue; }
 
           const chunk: OllamaChatStreamChunk = JSON.parse(trimmed);
           yield { content: chunk.message.content, done: chunk.done };

@@ -18,11 +18,11 @@ interface MessageListProps {
 
 function TypingIndicator() {
   return (
-    <div className="flex mb-4 justify-start">
-      <div className="inline-flex gap-1 px-4 py-3 bg-muted rounded-lg rounded-bl-none">
-        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
-        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
-        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" />
+    <div className="mb-4 flex justify-start">
+      <div className="inline-flex gap-1 rounded-lg rounded-bl-none bg-muted px-4 py-3">
+        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
       </div>
     </div>
   );
@@ -39,7 +39,7 @@ export function MessageList({ messages, isTyping, sendCount = 0 }: MessageListPr
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) { return; }
     const handleScroll = () => {
       isNearBottomRef.current =
         container.scrollHeight - container.scrollTop - container.clientHeight < 100;
@@ -61,12 +61,12 @@ export function MessageList({ messages, isTyping, sendCount = 0 }: MessageListPr
     if (isNearBottomRef.current) {
       scrollToBottom();
     }
-  }, [messages, isTyping, scrollToBottom]);
+  }, [scrollToBottom]);
 
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto p-4">
       {messages.length === 0 && !isTyping ? (
-        <div className="h-full flex items-center justify-center text-muted-foreground">
+        <div className="flex h-full items-center justify-center text-muted-foreground">
           <p>Start a conversation by typing a message below.</p>
         </div>
       ) : (

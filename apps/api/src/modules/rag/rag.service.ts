@@ -37,7 +37,7 @@ export class RagService {
 
     for (const paragraph of paragraphs) {
       const trimmedParagraph = paragraph.trim();
-      if (!trimmedParagraph) continue;
+      if (!trimmedParagraph) { continue; }
 
       // If adding this paragraph would exceed chunk size
       if (currentChunk.length + trimmedParagraph.length + 2 > chunkSize) {

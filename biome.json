@@ -40,7 +40,18 @@
       },
       "style": {
         "useImportType": "off",
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "useBlockStatements": "warn",
+        "useCollapsedElseIf": "warn",
+        "useConsistentBuiltinInstantiation": "warn",
+        "useShorthandAssign": "warn",
+        "useThrowOnlyError": "warn"
+      },
+      "nursery": {
+        "useSortedClasses": {
+          "level": "warn",
+          "options": {}
+        }
       },
       "a11y": {
         "useSemanticElements": "warn",

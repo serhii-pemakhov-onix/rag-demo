@@ -11,22 +11,22 @@ function RootComponent() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/" className="text-xl font-bold text-foreground">
+        <div className="mx-auto flex items-center justify-between px-4 py-4">
+          <Link to="/" className="font-bold text-foreground text-xl">
             RAG Demo
           </Link>
           <nav className="underline hover:no-underline">
             {isInAdmin ? (
               <Link
                 to="/"
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground transition-colors hover:text-foreground"
               >
                 Open Chat
               </Link>
             ) : (
               <Link
                 to="/admin"
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground transition-colors hover:text-foreground"
               >
                 Open Admin Panel
               </Link>

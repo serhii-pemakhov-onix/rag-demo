@@ -38,7 +38,7 @@ export class ChatController {
     });
 
     for await (const event of this.chatService.processMessageStream(body)) {
-      if (closed) break;
+      if (closed) { break; }
       res.write(`event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`);
     }
 

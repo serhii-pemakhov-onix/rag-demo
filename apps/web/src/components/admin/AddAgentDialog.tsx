@@ -81,7 +81,7 @@ export function AddAgentDialog({ open, onOpenChange, onSuccess }: AddAgentDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Agent</DialogTitle>
           <DialogDescription>
@@ -90,7 +90,7 @@ export function AddAgentDialog({ open, onOpenChange, onSuccess }: AddAgentDialog
         </DialogHeader>
 
         {form.formState.errors.root && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+          <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm">
             {form.formState.errors.root.message}
           </div>
         )}
@@ -138,7 +138,7 @@ export function AddAgentDialog({ open, onOpenChange, onSuccess }: AddAgentDialog
                     <Textarea
                       placeholder="You are a helpful assistant that..."
                       rows={6}
-                      className="max-h-[200px] overflow-y-auto resize-none"
+                      className="max-h-[200px] resize-none overflow-y-auto"
                       {...field}
                     />
                   </FormControl>
@@ -158,7 +158,7 @@ export function AddAgentDialog({ open, onOpenChange, onSuccess }: AddAgentDialog
                     <Textarea
                       placeholder="Focus on technical diagrams and extract all visible labels..."
                       rows={3}
-                      className="max-h-[150px] overflow-y-auto resize-none"
+                      className="max-h-[150px] resize-none overflow-y-auto"
                       {...field}
                     />
                   </FormControl>

@@ -89,7 +89,7 @@ function AgentEditPage() {
   if (isLoading) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-6">Edit Agent</h1>
+        <h1 className="mb-6 font-bold text-2xl">Edit Agent</h1>
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
@@ -98,7 +98,7 @@ function AgentEditPage() {
   if (error || !agent) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-6">Edit Agent</h1>
+        <h1 className="mb-6 font-bold text-2xl">Edit Agent</h1>
         <p className="text-destructive">Failed to load agent</p>
         <Button variant="outline" className="mt-4" onClick={handleCancel}>
           Back to Agents
@@ -109,18 +109,18 @@ function AgentEditPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Edit Agent</h1>
+      <h1 className="mb-6 font-bold text-2xl">Edit Agent</h1>
 
       <Card>
         <CardHeader>
           <CardTitle>{agent.name}</CardTitle>
           <CardDescription>
-            Slug: <code className="bg-muted px-1 py-0.5 rounded">{agent.slug}</code>
+            Slug: <code className="rounded bg-muted px-1 py-0.5">{agent.slug}</code>
           </CardDescription>
         </CardHeader>
         <CardContent>
           {form.formState.errors.root && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+            <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm">
               {form.formState.errors.root.message}
             </div>
           )}

@@ -57,7 +57,7 @@ function LoginPage() {
   };
 
   return (
-    <main className="min-h-[calc(100vh-73px)] flex items-center justify-center p-4">
+    <main className="flex min-h-[calc(100vh-73px)] items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle>Admin Login</CardTitle>
@@ -65,7 +65,7 @@ function LoginPage() {
         </CardHeader>
         <CardContent>
           {form.formState.errors.root && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+            <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm">
               {form.formState.errors.root.message}
             </div>
           )}

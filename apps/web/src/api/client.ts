@@ -76,7 +76,7 @@ export async function apiRequest<T>(
   if (!skipAuth) {
     const token = getAccessToken();
     if (token) {
-      requestHeaders['Authorization'] = `Bearer ${token}`;
+      requestHeaders.Authorization = `Bearer ${token}`;
     }
   }
 
@@ -103,7 +103,7 @@ export async function apiRequest<T>(
       const newToken = await new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
       });
-      requestHeaders['Authorization'] = `Bearer ${newToken}`;
+      requestHeaders.Authorization = `Bearer ${newToken}`;
       fetchOptions.headers = requestHeaders;
       response = await fetch(`${BASE_URL}${endpoint}`, fetchOptions);
     } else {
@@ -111,7 +111,7 @@ export async function apiRequest<T>(
       try {
         const newToken = await refreshToken();
         processQueue(null, newToken);
-        requestHeaders['Authorization'] = `Bearer ${newToken}`;
+        requestHeaders.Authorization = `Bearer ${newToken}`;
         fetchOptions.headers = requestHeaders;
         response = await fetch(`${BASE_URL}${endpoint}`, fetchOptions);
       } catch (error) {

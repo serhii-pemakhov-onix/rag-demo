@@ -87,7 +87,7 @@ export class ChatService {
       if (metadata.imageId) {
         // Image result
         const imageId = metadata.imageId as string;
-        if (seenImageIds.has(imageId)) continue;
+        if (seenImageIds.has(imageId)) { continue; }
         seenImageIds.add(imageId);
 
         try {

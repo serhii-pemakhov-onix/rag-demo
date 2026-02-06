@@ -117,9 +117,9 @@ export class DocumentProcessingService {
       default: {
         // Try to detect by extension
         const ext = filename.split('.').pop()?.toLowerCase();
-        if (ext === 'md') return this.parseMarkdown(buffer.toString('utf-8'));
-        if (ext === 'txt') return buffer.toString('utf-8');
-        if (ext === 'html' || ext === 'htm') return this.parseHtml(buffer.toString('utf-8'));
+        if (ext === 'md') { return this.parseMarkdown(buffer.toString('utf-8')); }
+        if (ext === 'txt') { return buffer.toString('utf-8'); }
+        if (ext === 'html' || ext === 'htm') { return this.parseHtml(buffer.toString('utf-8')); }
 
         throw new Error(`Unsupported mime type: ${mimeType}`);
       }

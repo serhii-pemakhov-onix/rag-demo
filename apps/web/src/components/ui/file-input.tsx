@@ -37,9 +37,9 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
         type="button"
         onClick={handleClick}
         className={cn(
-          'border-input bg-background ring-offset-background flex min-h-9 w-full cursor-pointer items-center rounded-md border px-3 py-2 text-sm font-normal shadow-xs transition-colors',
+          'flex min-h-9 w-full cursor-pointer items-center rounded-md border border-input bg-background px-3 py-2 font-normal text-sm shadow-xs ring-offset-background transition-colors',
           'hover:bg-accent/50',
-          'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           className,
         )}
       >

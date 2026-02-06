@@ -134,15 +134,15 @@ function ArticlesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!documentToDelete) return;
+    if (!documentToDelete) { return; }
     await deleteMutation.mutateAsync(documentToDelete);
     setDeleteDialogOpen(false);
     setDocumentToDelete(null);
   };
 
   const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024) { return `${bytes} B`; }
+    if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)} KB`; }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
@@ -152,7 +152,7 @@ function ArticlesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Documents</h1>
+      <h1 className="mb-6 font-bold text-2xl">Documents</h1>
 
       <Card className="mb-6">
         <CardHeader>
@@ -161,7 +161,7 @@ function ArticlesPage() {
         </CardHeader>
         <CardContent>
           {form.formState.errors.root && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-sm">
+            <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm">
               {form.formState.errors.root.message}
             </div>
           )}
@@ -176,14 +176,14 @@ function ArticlesPage() {
                     <FormLabel>Agent</FormLabel>
                     {!agentsLoading && (!agents || agents.length === 0) ? (
                       <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground">No agents available.</p>
+                        <p className="text-muted-foreground text-sm">No agents available.</p>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => setAddAgentOpen(true)}
                         >
-                          <Plus className="h-4 w-4 mr-1" />
+                          <Plus className="mr-1 h-4 w-4" />
                           Create Agent
                         </Button>
                       </div>
@@ -266,8 +266,8 @@ function ArticlesPage() {
                 onValueChange={(value) => {
                   const next = value === 'all' ? undefined : value;
                   setFilterAgentId(next);
-                  if (next) localStorage.setItem('agent:articles', next);
-                  else localStorage.removeItem('agent:articles');
+                  if (next) { localStorage.setItem('agent:articles', next); }
+                  else { localStorage.removeItem('agent:articles'); }
                 }}
               >
                 <SelectTrigger>
@@ -296,19 +296,19 @@ function ArticlesPage() {
               {articles.map((article) => (
                 <div
                   key={article.id}
-                  className="flex items-center justify-between p-3 border rounded-md"
+                  className="flex items-center justify-between rounded-md border p-3"
                 >
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{article.title}</p>
+                      <p className="truncate font-medium">{article.title}</p>
                       <StatusBadge status={article.status} />
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
+                    <p className="truncate text-muted-foreground text-sm">
                       {article.agent.name} &middot; {article.filename} &middot;{' '}
                       {formatSize(article.size)}
                     </p>
                     {article.error && (
-                      <p className="text-sm text-destructive mt-1">{article.error}</p>
+                      <p className="mt-1 text-destructive text-sm">{article.error}</p>
                     )}
                   </div>
                   <Button

@@ -46,8 +46,8 @@ function AdminLayout() {
     <div className="flex h-[calc(100vh-73px)]">
       <aside className="w-64 border-r bg-muted/30 p-4">
         <div className="mb-6">
-          <p className="text-sm text-muted-foreground">Logged in as</p>
-          <p className="font-medium truncate">{user?.email}</p>
+          <p className="text-muted-foreground text-sm">Logged in as</p>
+          <p className="truncate font-medium">{user?.email}</p>
         </div>
         <nav className="space-y-1">
           {navItems.map((item) => {
@@ -59,7 +59,7 @@ function AdminLayout() {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'block px-3 py-2 rounded-md text-sm transition-colors',
+                  'block rounded-md px-3 py-2 text-sm transition-colors',
                   isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
                 )}
               >
@@ -68,7 +68,7 @@ function AdminLayout() {
             );
           })}
         </nav>
-        <div className="mt-6 pt-6 border-t">
+        <div className="mt-6 border-t pt-6">
           <Button
             variant="outline"
             className="w-full"
