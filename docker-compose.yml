@@ -64,7 +64,18 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 'true'
       MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ragdemo-qdrant
+    restart: unless-stopped
+    ports:
+      - '6333:6333'
+      - '6334:6334'
+    volumes:
+      - qdrant_data:/qdrant/storage
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  qdrant_data:

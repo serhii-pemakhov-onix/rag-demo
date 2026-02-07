@@ -59,11 +59,9 @@ export class DocumentProcessingService {
       this.logger.log(`Generated ${embeddings.length} embeddings`);
 
       // Store in vector database
-      await this.rag.storeChunks(document.agent.slug, chunks, embeddings, {
+      await this.rag.storeArticleChunks(document.agent.slug, chunks, embeddings, {
         documentId: document.id,
         agentId: document.agentId,
-        chunkIndex: 0,
-        totalChunks: chunks.length,
         filename: document.filename,
         mimeType: document.mimeType,
       });
@@ -117,9 +115,15 @@ export class DocumentProcessingService {
       default: {
         // Try to detect by extension
         const ext = filename.split('.').pop()?.toLowerCase();
-        if (ext === 'md') { return this.parseMarkdown(buffer.toString('utf-8')); }
-        if (ext === 'txt') { return buffer.toString('utf-8'); }
-        if (ext === 'html' || ext === 'htm') { return this.parseHtml(buffer.toString('utf-8')); }
+        if (ext === 'md') {
+          return this.parseMarkdown(buffer.toString('utf-8'));
+        }
+        if (ext === 'txt') {
+          return buffer.toString('utf-8');
+        }
+        if (ext === 'html' || ext === 'htm') {
+          return this.parseHtml(buffer.toString('utf-8'));
+        }
 
         throw new Error(`Unsupported mime type: ${mimeType}`);
       }

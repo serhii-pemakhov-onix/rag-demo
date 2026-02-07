@@ -4,8 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IMAGES_BUCKET } from '../../providers/storage/storage.config';
 import { StorageService } from '../../providers/storage/storage.service';
-import { VectorService } from '../../providers/vector/vector.service';
 import { AgentsService } from '../agents/agents.service';
+import { RagService } from '../rag/rag.service';
 import type { GetImagesQueryDto, UploadImageDto } from './dto/image.dto';
 import { ImageProcessingService } from './image-processing.service';
 
@@ -16,7 +16,7 @@ export class ImagesService {
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
-    private vectorService: VectorService,
+    private ragService: RagService,
     private agentsService: AgentsService,
     private processingService: ImageProcessingService,
   ) {}
@@ -108,8 +108,7 @@ export class ImagesService {
     await this.storage.deleteFile(IMAGES_BUCKET, image.minioKey);
 
     // Delete from vector database
-    const collectionName = `agent_${image.agent.slug}`;
-    await this.vectorService.deleteDocuments(collectionName, [`image_${id}`]);
+    await this.ragService.deleteImageEmbedding(image.agent.slug, id);
 
     // Delete from PostgreSQL
     await this.prisma.image.delete({

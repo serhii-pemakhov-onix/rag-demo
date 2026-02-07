@@ -1,195 +1,202 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { LlamaIndexService } from '../../providers/llamaindex/llamaindex.service';
 import { OllamaService } from '../../providers/ollama/ollama.service';
-import { VectorService } from '../../providers/vector/vector.service';
+import { QdrantService } from '../../providers/qdrant/qdrant.service';
 
-export interface ChunkMetadata {
+export interface ArticleChunkMetadata {
   documentId: string;
   agentId: string;
   chunkIndex: number;
   totalChunks: number;
   filename: string;
   mimeType: string;
+  content: string;
 }
+
+export interface ImageMetadata {
+  imageId: string;
+  agentId: string;
+  filename: string;
+  mimeType: string;
+  description: string;
+  subject?: string;
+  style?: string;
+}
+
+export interface SearchResult {
+  articles: Array<{
+    id: string;
+    score: number;
+    content: string;
+    metadata: Omit<ArticleChunkMetadata, 'content'>;
+  }>;
+  images: Array<{
+    id: string;
+    score: number;
+    description: string;
+    metadata: Omit<ImageMetadata, 'description'>;
+  }>;
+}
+
+// Embedding dimension for nomic-embed-text model
+const EMBEDDING_DIMENSION = 768;
 
 @Injectable()
 export class RagService {
+  private readonly logger = new Logger(RagService.name);
+
   constructor(
     private ollama: OllamaService,
-    private vector: VectorService,
+    private qdrant: QdrantService,
+    private llamaIndex: LlamaIndexService,
   ) {}
 
+  private getArticlesCollection(agentSlug: string): string {
+    return `${agentSlug}_articles`;
+  }
+
+  private getImagesCollection(agentSlug: string): string {
+    return `${agentSlug}_images`;
+  }
+
   chunkText(text: string, chunkSize = 512, overlap = 100): string[] {
-    const chunks: string[] = [];
-
-    // Clean and normalize text
-    const cleanedText = text
-      .replace(/\r\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-
-    if (cleanedText.length <= chunkSize) {
-      return [cleanedText];
-    }
-
-    // Split by paragraphs first
-    const paragraphs = cleanedText.split(/\n\n+/);
-    let currentChunk = '';
-
-    for (const paragraph of paragraphs) {
-      const trimmedParagraph = paragraph.trim();
-      if (!trimmedParagraph) { continue; }
-
-      // If adding this paragraph would exceed chunk size
-      if (currentChunk.length + trimmedParagraph.length + 2 > chunkSize) {
-        if (currentChunk) {
-          chunks.push(currentChunk.trim());
-        }
-
-        // If paragraph itself is too large, split it further
-        if (trimmedParagraph.length > chunkSize) {
-          const sentences = this.splitIntoSentences(trimmedParagraph);
-          let sentenceChunk = '';
-
-          for (const sentence of sentences) {
-            if (sentenceChunk.length + sentence.length + 1 > chunkSize) {
-              if (sentenceChunk) {
-                chunks.push(sentenceChunk.trim());
-              }
-              // If sentence is still too long, split by words
-              if (sentence.length > chunkSize) {
-                const wordChunks = this.splitByWords(sentence, chunkSize);
-                chunks.push(...wordChunks);
-                sentenceChunk = '';
-              } else {
-                sentenceChunk = sentence;
-              }
-            } else {
-              sentenceChunk += (sentenceChunk ? ' ' : '') + sentence;
-            }
-          }
-          currentChunk = sentenceChunk;
-        } else {
-          currentChunk = trimmedParagraph;
-        }
-      } else {
-        currentChunk += (currentChunk ? '\n\n' : '') + trimmedParagraph;
-      }
-    }
-
-    if (currentChunk.trim()) {
-      chunks.push(currentChunk.trim());
-    }
-
-    // Add overlap between chunks
-    if (overlap > 0 && chunks.length > 1) {
-      return this.addOverlap(chunks, overlap);
-    }
-
-    return chunks;
-  }
-
-  private splitIntoSentences(text: string): string[] {
-    // Split on sentence boundaries while preserving the delimiter
-    const sentences = text.match(/[^.!?]+[.!?]+\s*/g) || [text];
-    return sentences.map((s) => s.trim()).filter((s) => s.length > 0);
-  }
-
-  private splitByWords(text: string, maxLength: number): string[] {
-    const words = text.split(/\s+/);
-    const chunks: string[] = [];
-    let currentChunk = '';
-
-    for (const word of words) {
-      if (currentChunk.length + word.length + 1 > maxLength) {
-        if (currentChunk) {
-          chunks.push(currentChunk);
-        }
-        currentChunk = word;
-      } else {
-        currentChunk += (currentChunk ? ' ' : '') + word;
-      }
-    }
-
-    if (currentChunk) {
-      chunks.push(currentChunk);
-    }
-
-    return chunks;
-  }
-
-  private addOverlap(chunks: string[], overlapSize: number): string[] {
-    const result: string[] = [];
-
-    for (let i = 0; i < chunks.length; i++) {
-      let chunk = chunks[i];
-
-      // Add overlap from previous chunk
-      if (i > 0) {
-        const prevChunk = chunks[i - 1];
-        const overlapText = prevChunk.slice(-overlapSize);
-        chunk = `${overlapText}... ${chunk}`;
-      }
-
-      result.push(chunk);
-    }
-
-    return result;
+    return this.llamaIndex.chunkText(text, chunkSize, overlap);
   }
 
   async generateEmbeddings(chunks: string[]): Promise<number[][]> {
     return this.ollama.generateEmbeddings(chunks);
   }
 
-  async storeChunks(
+  async storeArticleChunks(
     agentSlug: string,
     chunks: string[],
     embeddings: number[][],
-    metadata: ChunkMetadata,
+    metadata: Omit<ArticleChunkMetadata, 'chunkIndex' | 'totalChunks' | 'content'>,
   ): Promise<{ collection: string; count: number }> {
-    const collectionName = `agent_${agentSlug}`;
+    const collection = this.getArticlesCollection(agentSlug);
 
-    // Ensure collection exists
-    await this.vector.createCollection(collectionName);
+    await this.qdrant.ensureCollection(collection, EMBEDDING_DIMENSION);
 
-    // Generate IDs and metadata for each chunk
-    const ids = chunks.map((_, i) => `${metadata.documentId}_chunk_${i}`);
-
-    const metadatas = chunks.map((_, i) => ({
-      documentId: metadata.documentId,
-      agentId: metadata.agentId,
-      chunkIndex: i,
-      totalChunks: chunks.length,
-      filename: metadata.filename,
-      mimeType: metadata.mimeType,
+    const points = chunks.map((chunk, i) => ({
+      id: `${metadata.documentId}_chunk_${i}`,
+      vector: embeddings[i],
+      payload: {
+        documentId: metadata.documentId,
+        agentId: metadata.agentId,
+        chunkIndex: i,
+        totalChunks: chunks.length,
+        filename: metadata.filename,
+        mimeType: metadata.mimeType,
+        content: chunk,
+      },
     }));
 
-    return this.vector.addDocuments(collectionName, chunks, embeddings, metadatas, ids);
+    await this.qdrant.upsertPoints(collection, points);
+
+    this.logger.log(`Stored ${chunks.length} chunks in ${collection}`);
+    return { collection, count: chunks.length };
   }
 
-  async searchSimilar(
+  async storeImageEmbedding(
     agentSlug: string,
-    query: string,
-    topK = 5,
-  ): Promise<{ documents: string[]; metadatas: Record<string, unknown>[] }> {
-    const collectionName = `agent_${agentSlug}`;
-    const queryEmbedding = await this.ollama.generateQueryEmbedding(query);
-    const results = await this.vector.query(collectionName, queryEmbedding, topK);
+    embedding: number[],
+    metadata: ImageMetadata,
+  ): Promise<{ collection: string; count: number }> {
+    const collection = this.getImagesCollection(agentSlug);
 
-    const documents = (results.documents?.[0] || []).filter((doc): doc is string => doc !== null);
+    await this.qdrant.ensureCollection(collection, EMBEDDING_DIMENSION);
 
-    return {
-      documents,
-      metadatas: (results.metadatas?.[0] as Record<string, unknown>[]) || [],
+    const point = {
+      id: `image_${metadata.imageId}`,
+      vector: embedding,
+      payload: {
+        imageId: metadata.imageId,
+        agentId: metadata.agentId,
+        filename: metadata.filename,
+        mimeType: metadata.mimeType,
+        description: metadata.description,
+        subject: metadata.subject,
+        style: metadata.style,
+      },
     };
+
+    await this.qdrant.upsertPoints(collection, [point]);
+
+    this.logger.log(`Stored image embedding in ${collection}`);
+    return { collection, count: 1 };
+  }
+
+  async searchSimilar(agentSlug: string, query: string, topK = 5): Promise<SearchResult> {
+    const queryEmbedding = await this.ollama.generateQueryEmbedding(query);
+
+    const articlesCollection = this.getArticlesCollection(agentSlug);
+    const imagesCollection = this.getImagesCollection(agentSlug);
+
+    // Parallel search in both collections
+    const [articleResults, imageResults] = await Promise.all([
+      this.qdrant.search(articlesCollection, queryEmbedding, topK),
+      this.qdrant.search(imagesCollection, queryEmbedding, topK),
+    ]);
+
+    const articles = articleResults.map((r) => ({
+      id: r.id,
+      score: r.score,
+      content: (r.payload.content as string) || '',
+      metadata: {
+        documentId: r.payload.documentId as string,
+        agentId: r.payload.agentId as string,
+        chunkIndex: r.payload.chunkIndex as number,
+        totalChunks: r.payload.totalChunks as number,
+        filename: r.payload.filename as string,
+        mimeType: r.payload.mimeType as string,
+      },
+    }));
+
+    const images = imageResults.map((r) => ({
+      id: r.id,
+      score: r.score,
+      description: (r.payload.description as string) || '',
+      metadata: {
+        imageId: r.payload.imageId as string,
+        agentId: r.payload.agentId as string,
+        filename: r.payload.filename as string,
+        mimeType: r.payload.mimeType as string,
+        subject: r.payload.subject as string | undefined,
+        style: r.payload.style as string | undefined,
+      },
+    }));
+
+    this.logger.log(`Search returned ${articles.length} articles, ${images.length} images`);
+
+    return { articles, images };
   }
 
   async deleteDocumentChunks(
     agentSlug: string,
     documentId: string,
     chunkCount: number,
-  ): Promise<{ deletedCount: number }> {
-    const collectionName = `agent_${agentSlug}`;
+  ): Promise<void> {
+    const collection = this.getArticlesCollection(agentSlug);
     const ids = Array.from({ length: chunkCount }, (_, i) => `${documentId}_chunk_${i}`);
-    return this.vector.deleteDocuments(collectionName, ids);
+    await this.qdrant.deletePoints(collection, ids);
+    this.logger.log(`Deleted ${chunkCount} chunks for document ${documentId}`);
+  }
+
+  async deleteImageEmbedding(agentSlug: string, imageId: string): Promise<void> {
+    const collection = this.getImagesCollection(agentSlug);
+    await this.qdrant.deletePoints(collection, [`image_${imageId}`]);
+    this.logger.log(`Deleted image embedding for ${imageId}`);
+  }
+
+  async deleteAgentCollections(agentSlug: string): Promise<void> {
+    const articlesCollection = this.getArticlesCollection(agentSlug);
+    const imagesCollection = this.getImagesCollection(agentSlug);
+
+    await Promise.all([
+      this.qdrant.deleteCollection(articlesCollection),
+      this.qdrant.deleteCollection(imagesCollection),
+    ]);
+
+    this.logger.log(`Deleted collections for agent ${agentSlug}`);
   }
 }

@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
+import { LlamaIndexModule } from '../../providers/llamaindex/llamaindex.module';
 import { OllamaModule } from '../../providers/ollama/ollama.module';
-import { VectorModule } from '../../providers/vector/vector.module';
+import { QdrantModule } from '../../providers/qdrant/qdrant.module';
 import { RagService } from './rag.service';
 
 @Module({
-  imports: [OllamaModule, VectorModule],
+  imports: [OllamaModule, QdrantModule, LlamaIndexModule],
   providers: [RagService],
   exports: [RagService],
 })

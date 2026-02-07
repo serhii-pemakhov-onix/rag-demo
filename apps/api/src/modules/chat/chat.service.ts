@@ -51,23 +51,7 @@ export class ChatService {
       throw new BadRequestException('Agent is not active');
     }
 
-    // 2. Search Chroma for relevant context
-    let documents: string[] = [];
-    let metadatas: Record<string, unknown>[] = [];
-
-    try {
-      this.logger.log(`Searching Chroma for agent slug="${agent.slug}"...`);
-      const searchResults = await this.ragService.searchSimilar(agent.slug, dto.message);
-      documents = searchResults.documents;
-      metadatas = searchResults.metadatas;
-      this.logger.log(
-        `Chroma returned ${documents.length} documents, ${metadatas.length} metadatas`,
-      );
-    } catch (error) {
-      this.logger.warn(`Vector search failed, proceeding without context: ${error}`);
-    }
-
-    // 3. Classify results and build context
+    // 2. Search Qdrant for relevant context (parallel search for articles and images)
     const documentContextParts: string[] = [];
     const imageContextParts: string[] = [];
     const images: ChatImageDto[] = [];
@@ -75,32 +59,67 @@ export class ChatService {
     const seenDocumentIds = new Set<string>();
     const seenImageIds = new Set<string>();
 
-    for (let i = 0; i < metadatas.length; i++) {
-      const metadata = metadatas[i];
-      const document = documents[i];
-      const score = Math.max(0, 1 - i * 0.1);
-
-      this.logger.debug(
-        `Result[${i}]: metadata keys=${Object.keys(metadata).join(',')}, hasImageId=${!!metadata.imageId}, hasDocumentId=${!!metadata.documentId}`,
+    try {
+      this.logger.log(`Searching Qdrant for agent slug="${agent.slug}"...`);
+      const { articles, images: imageResults } = await this.ragService.searchSimilar(
+        agent.slug,
+        dto.message,
       );
+      this.logger.log(`Qdrant returned ${articles.length} articles, ${imageResults.length} images`);
 
-      if (metadata.imageId) {
-        // Image result
-        const imageId = metadata.imageId as string;
-        if (seenImageIds.has(imageId)) { continue; }
+      // Process articles
+      for (const article of articles) {
+        const { metadata, content, score } = article;
+
+        // Add chunk text to context regardless of dedup
+        if (content) {
+          documentContextParts.push(
+            `[${documentContextParts.length + imageContextParts.length + 1}] (source: ${metadata.filename}, chunk ${metadata.chunkIndex + 1}/${metadata.totalChunks})\n${content}`,
+          );
+        }
+
+        // Deduplicate sources by documentId
+        if (!seenDocumentIds.has(metadata.documentId)) {
+          seenDocumentIds.add(metadata.documentId);
+
+          try {
+            const doc = await this.prisma.document.findUnique({
+              where: { id: metadata.documentId },
+            });
+            if (doc) {
+              sources.push({
+                id: metadata.documentId,
+                type: 'document',
+                title: doc.title,
+                score,
+              });
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to resolve document ${metadata.documentId}: ${error}`);
+          }
+        }
+      }
+
+      // Process images
+      for (const imageResult of imageResults) {
+        const { metadata, description, score } = imageResult;
+        const imageId = metadata.imageId;
+
+        if (seenImageIds.has(imageId)) {
+          continue;
+        }
         seenImageIds.add(imageId);
 
         try {
           const image = await this.prisma.image.findUnique({ where: { id: imageId } });
           if (image) {
             const url = `/api/images/${imageId}/file`;
-            const description = document || (metadata.subject as string) || image.filename;
 
             images.push({
               id: imageId,
               url,
               filename: image.filename,
-              description,
+              description: description || metadata.subject || image.filename,
             });
 
             sources.push({
@@ -117,46 +136,16 @@ export class ChatService {
         } catch (error) {
           this.logger.warn(`Failed to resolve image ${imageId}: ${error}`);
         }
-      } else if (metadata.documentId) {
-        // Document chunk result
-        const documentId = metadata.documentId as string;
-
-        // Add chunk text to context regardless of dedup
-        if (document) {
-          const filename = (metadata.filename as string) || 'unknown';
-          const chunkIndex = metadata.chunkIndex as number;
-          const totalChunks = metadata.totalChunks as number;
-          documentContextParts.push(
-            `[${documentContextParts.length + imageContextParts.length + 1}] (source: ${filename}, chunk ${chunkIndex + 1}/${totalChunks})\n${document}`,
-          );
-        }
-
-        // Deduplicate sources by documentId
-        if (!seenDocumentIds.has(documentId)) {
-          seenDocumentIds.add(documentId);
-
-          try {
-            const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
-            if (doc) {
-              sources.push({
-                id: documentId,
-                type: 'document',
-                title: doc.title,
-                score,
-              });
-            }
-          } catch (error) {
-            this.logger.warn(`Failed to resolve document ${documentId}: ${error}`);
-          }
-        }
       }
+    } catch (error) {
+      this.logger.warn(`Vector search failed, proceeding without context: ${error}`);
     }
 
     this.logger.log(
       `Context built: ${documentContextParts.length} doc chunks, ${imageContextParts.length} image parts, ${images.length} images, ${sources.length} sources`,
     );
 
-    // 4. Build LLM messages
+    // 3. Build LLM messages
     const messages: { role: string; content: string }[] = [];
 
     // System prompt

@@ -1,10 +1,21 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RagService } from '../rag/rag.service';
 import type { CreateAgentDto, UpdateAgentDto } from './dto/agent.dto';
 
 @Injectable()
 export class AgentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => RagService))
+    private ragService: RagService,
+  ) {}
 
   async findAll() {
     return this.prisma.agent.findMany({
@@ -100,7 +111,10 @@ export class AgentsService {
   }
 
   async delete(id: string) {
-    await this.findById(id);
+    const agent = await this.findById(id);
+
+    // Delete vector collections for this agent
+    await this.ragService.deleteAgentCollections(agent.slug);
 
     await this.prisma.agent.delete({
       where: { id },

@@ -13,10 +13,11 @@ import { ImagesModule } from './modules/images/images.module';
 import { RagModule } from './modules/rag/rag.module';
 // Core modules
 import { PrismaModule } from './prisma/prisma.module';
-import { OllamaModule } from './providers/ollama/ollama.module';
 // Provider modules
+import { LlamaIndexModule } from './providers/llamaindex/llamaindex.module';
+import { OllamaModule } from './providers/ollama/ollama.module';
+import { QdrantModule } from './providers/qdrant/qdrant.module';
 import { StorageModule } from './providers/storage/storage.module';
-import { VectorModule } from './providers/vector/vector.module';
 
 @Module({
   imports: [
@@ -35,7 +36,8 @@ import { VectorModule } from './providers/vector/vector.module';
     ChatModule,
     RagModule,
     StorageModule,
-    VectorModule,
+    QdrantModule,
+    LlamaIndexModule,
     OllamaModule,
   ],
   providers: [

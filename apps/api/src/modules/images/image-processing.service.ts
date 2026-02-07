@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { OllamaService } from '../../providers/ollama/ollama.service';
 import { IMAGES_BUCKET } from '../../providers/storage/storage.config';
 import { StorageService } from '../../providers/storage/storage.service';
-import { VectorService } from '../../providers/vector/vector.service';
+import { RagService } from '../rag/rag.service';
 
 @Injectable()
 export class ImageProcessingService {
@@ -14,7 +14,7 @@ export class ImageProcessingService {
     private prisma: PrismaService,
     private storage: StorageService,
     private ollama: OllamaService,
-    private vector: VectorService,
+    private rag: RagService,
   ) {}
 
   async processImage(imageId: string): Promise<void> {
@@ -57,26 +57,15 @@ export class ImageProcessingService {
       this.logger.log(`Generated embedding with ${embedding.length} dimensions`);
 
       // Store in vector database
-      const collectionName = `agent_${image.agent.slug}`;
-      await this.vector.createCollection(collectionName);
-
-      await this.vector.addDocuments(
-        collectionName,
-        [embeddingText],
-        [embedding],
-        [
-          {
-            imageId: image.id,
-            agentId: image.agentId,
-            filename: image.filename,
-            mimeType: image.mimeType,
-            subject: structured?.subject ?? 'Custom description',
-            style: structured?.style ?? 'Custom',
-            type: 'image',
-          },
-        ],
-        [`image_${image.id}`],
-      );
+      await this.rag.storeImageEmbedding(image.agent.slug, embedding, {
+        imageId: image.id,
+        agentId: image.agentId,
+        filename: image.filename,
+        mimeType: image.mimeType,
+        description: embeddingText,
+        subject: structured?.subject,
+        style: structured?.style,
+      });
 
       // Store description - either structured JSON or raw text
       const descriptionToStore = structured ?? { rawText: rawResponse };
