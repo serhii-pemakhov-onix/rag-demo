@@ -5,7 +5,11 @@ export interface QdrantPoint {
 }
 
 export interface QdrantSearchResult {
-  id: string;
+  id: string | number;
   score: number;
   payload: Record<string, unknown>;
+}
+
+export interface QdrantFilter {
+  must: { key: string; match: { value: unknown } }[];
 }

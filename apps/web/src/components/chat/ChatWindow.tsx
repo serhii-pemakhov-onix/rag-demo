@@ -103,7 +103,11 @@ export function ChatWindow() {
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
-        <MessageList messages={messages} isTyping={streamState.isPreprocessing} sendCount={sendCount} />
+        <MessageList
+          messages={messages}
+          isTyping={streamState.isPreprocessing}
+          sendCount={sendCount}
+        />
         <MessageInput onSend={handleSend} disabled={streamState.isStreaming || !agentId} />
       </CardContent>
     </Card>

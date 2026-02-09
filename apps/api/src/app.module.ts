@@ -36,8 +36,8 @@ import { StorageModule } from './providers/storage/storage.module';
     ChatModule,
     RagModule,
     StorageModule,
-    QdrantModule,
     LlamaIndexModule,
+    QdrantModule,
     OllamaModule,
   ],
   providers: [

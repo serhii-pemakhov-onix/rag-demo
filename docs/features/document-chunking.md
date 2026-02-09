@@ -2,7 +2,7 @@
 
 ## Overview
 
-Document chunking is the process of splitting documents into smaller pieces (chunks) for embedding and storage in the vector database. Proper chunking is critical for effective RAG retrieval - chunks must be small enough for precise matching but large enough to contain meaningful context.
+Document chunking is the process of splitting documents into smaller pieces (chunks) for embedding and storage in the vector database. Uses **LlamaIndex** for chunking orchestration. Proper chunking is critical for effective RAG retrieval - chunks must be small enough for precise matching but large enough to contain meaningful context.
 
 ## Business Logic
 
@@ -53,12 +53,12 @@ Chunk 2:              [-------- 512 tokens --------]
 3. **Parse** - Extract text based on file type
 4. **Clean** - Remove noise (headers, footers, page numbers for PDF)
 5. **Chunk** - Split using hybrid strategy
-6. **Embed** - Generate embeddings via Ollama (`nomic-embed-text-v2-moe`)
-7. **Store vectors** - Save to Chroma with metadata
+6. **Embed** - Generate embeddings via Ollama (`nomic-embed-text`)
+7. **Store vectors** - Save to Qdrant with metadata
 
 ## Metadata per Chunk
 
-Each chunk stored in Chroma includes:
+Each chunk stored in Qdrant includes:
 
 ```typescript
 {
@@ -88,20 +88,14 @@ Each chunk stored in Chroma includes:
 - [ ] Plain text files are chunked using recursive separators
 - [ ] All chunks are within 50-768 token range
 - [ ] Chunk overlap is consistently 100 tokens
-- [ ] Metadata is attached to each chunk in Chroma
+- [ ] Metadata is attached to each chunk in Qdrant
 - [ ] Original documents are preserved in MinIO
 
 ## Technical Notes
 
 ### Token Counting
 
-Use a tokenizer compatible with `nomic-embed-text-v2-moe`. For estimation, ~4 characters = 1 token.
-
-### Prefix Requirements
-
-`nomic-embed-text-v2-moe` requires prefixes:
-- Documents: `search_document: <text>`
-- Queries: `search_query: <text>`
+Use a tokenizer compatible with `nomic-embed-text`. For estimation, ~4 characters = 1 token.
 
 ### Error Handling
 
@@ -112,9 +106,10 @@ Use a tokenizer compatible with `nomic-embed-text-v2-moe`. For estimation, ~4 ch
 ## Dependencies
 
 - [Agents](./agents.md) - agentId included in chunk metadata
+- LlamaIndex (chunking orchestration)
 - MinIO (document storage)
-- Chroma Cloud (vector storage)
-- Ollama with `nomic-embed-text-v2-moe` (embeddings)
+- Qdrant (vector storage, collection: `{agent_slug}_articles`)
+- Ollama with `nomic-embed-text` (embeddings)
 - PostgreSQL (document metadata)
 
 ## Out of Scope

@@ -65,10 +65,7 @@ interface RequestOptions {
   skipAuth?: boolean;
 }
 
-export async function apiRequest<T>(
-  endpoint: string,
-  options: RequestOptions = {},
-): Promise<T> {
+export async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {}, skipAuth = false } = options;
 
   const requestHeaders: Record<string, string> = { ...headers };

@@ -55,7 +55,7 @@ Performed immediately on upload:
 │  1. Parse document (extract text)                                │
 │  2. Chunk content (per chunking strategy)                        │
 │  3. Generate embeddings (Ollama)                                 │
-│  4. Store in Chroma with metadata                                │
+│  4. Store in Qdrant with metadata                                │
 │  5. Update document status: COMPLETED or FAILED                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -142,7 +142,7 @@ Authorization: Bearer <access_token>
 Deletes:
 - Document record from PostgreSQL
 - File from MinIO
-- Embeddings from Chroma
+- Embeddings from Qdrant
 
 ## Data Model
 
@@ -183,7 +183,7 @@ Deletes:
 - [ ] Document status can be polled via GET endpoint
 - [ ] Background processing chunks and embeds the document
 - [ ] Failed processing sets status to FAILED with error message
-- [ ] Delete removes document from PostgreSQL, MinIO, and Chroma
+- [ ] Delete removes document from PostgreSQL, MinIO, and Qdrant
 - [ ] List endpoint shows all documents with their status
 
 ## Technical Notes
@@ -218,7 +218,7 @@ Use BullMQ with Redis for job queue:
 - MinIO - File storage
 - PostgreSQL - Document metadata
 - Redis/BullMQ - Job queue
-- Chroma Cloud - Vector storage
+- Qdrant Cloud - Vector storage
 - Ollama - Embeddings
 
 ## Out of Scope

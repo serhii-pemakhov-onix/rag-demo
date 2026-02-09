@@ -108,7 +108,7 @@ export class ImagesService {
     await this.storage.deleteFile(IMAGES_BUCKET, image.minioKey);
 
     // Delete from vector database
-    await this.ragService.deleteImageEmbedding(image.agent.slug, id);
+    await this.ragService.deleteImage(image.agent.slug, id);
 
     // Delete from PostgreSQL
     await this.prisma.image.delete({

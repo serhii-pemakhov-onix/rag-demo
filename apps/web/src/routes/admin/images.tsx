@@ -128,15 +128,21 @@ function ImagesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!imageToDelete) { return; }
+    if (!imageToDelete) {
+      return;
+    }
     await deleteMutation.mutateAsync(imageToDelete);
     setDeleteDialogOpen(false);
     setImageToDelete(null);
   };
 
   const formatSize = (bytes: number) => {
-    if (bytes < 1024) { return `${bytes} B`; }
-    if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)} KB`; }
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
@@ -247,8 +253,11 @@ function ImagesPage() {
                 onValueChange={(value) => {
                   const next = value === 'all' ? undefined : value;
                   setFilterAgentId(next);
-                  if (next) { localStorage.setItem('agent:images:filter', next); }
-                  else { localStorage.removeItem('agent:images:filter'); }
+                  if (next) {
+                    localStorage.setItem('agent:images:filter', next);
+                  } else {
+                    localStorage.removeItem('agent:images:filter');
+                  }
                 }}
               >
                 <SelectTrigger>

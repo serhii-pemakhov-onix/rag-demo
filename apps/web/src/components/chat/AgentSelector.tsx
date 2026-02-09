@@ -17,11 +17,7 @@ export function AgentSelector({ value, onChange, disabled }: AgentSelectorProps)
   const { data: agents, isLoading } = useActiveAgents();
 
   return (
-    <Select
-      onValueChange={onChange}
-      value={value}
-      disabled={disabled || isLoading}
-    >
+    <Select onValueChange={onChange} value={value} disabled={disabled || isLoading}>
       <SelectTrigger className="w-[200px]">
         <SelectValue placeholder="Select an agent" />
       </SelectTrigger>

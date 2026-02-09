@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { QdrantClient } from '@qdrant/js-client-rest';
-import type { QdrantPoint, QdrantSearchResult } from './qdrant.types';
+import type { QdrantFilter, QdrantPoint, QdrantSearchResult } from './qdrant.types';
 
 @Injectable()
 export class QdrantService implements OnModuleInit {
@@ -11,9 +11,9 @@ export class QdrantService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
-    const url = this.configService.get<string>('QDRANT_URL', 'http://localhost:6333');
-    this.client = new QdrantClient({ url });
-    this.logger.log(`Qdrant client initialized with URL: ${url}`);
+    const qdrantUrl = this.configService.get<string>('QDRANT_URL', 'http://localhost:6333');
+    this.client = new QdrantClient({ url: qdrantUrl });
+    this.logger.log(`Qdrant client initialized at ${qdrantUrl}`);
   }
 
   async ensureCollection(name: string, dimension: number): Promise<void> {
@@ -22,12 +22,9 @@ export class QdrantService implements OnModuleInit {
 
     if (!exists) {
       await this.client.createCollection(name, {
-        vectors: {
-          size: dimension,
-          distance: 'Cosine',
-        },
+        vectors: { size: dimension, distance: 'Cosine' },
       });
-      this.logger.log(`Created collection: ${name} (dimension: ${dimension})`);
+      this.logger.log(`Created collection: ${name}`);
     }
   }
 
@@ -35,62 +32,46 @@ export class QdrantService implements OnModuleInit {
     try {
       await this.client.deleteCollection(name);
       this.logger.log(`Deleted collection: ${name}`);
-    } catch {
-      // Collection might not exist
-      this.logger.debug(`Collection ${name} not found or already deleted`);
+    } catch (error) {
+      this.logger.debug(`Delete collection failed for ${name}: ${error}`);
     }
   }
 
   async upsertPoints(collection: string, points: QdrantPoint[]): Promise<void> {
-    if (points.length === 0) {
-      return;
-    }
-
-    await this.client.upsert(collection, {
-      wait: true,
-      points: points.map((p) => ({
-        id: p.id,
-        vector: p.vector,
-        payload: p.payload,
-      })),
-    });
-
-    this.logger.debug(`Upserted ${points.length} points to collection: ${collection}`);
+    await this.client.upsert(collection, { wait: true, points });
+    this.logger.log(`Upserted ${points.length} points in ${collection}`);
   }
 
-  async deletePoints(collection: string, ids: string[]): Promise<void> {
-    if (ids.length === 0) {
-      return;
-    }
-
+  async deleteByFilter(collection: string, filter: QdrantFilter): Promise<void> {
     try {
-      await this.client.delete(collection, {
-        wait: true,
-        points: ids,
-      });
-      this.logger.debug(`Deleted ${ids.length} points from collection: ${collection}`);
+      await this.client.delete(collection, { filter });
+      this.logger.log(`Deleted points from ${collection} with filter`);
     } catch (error) {
-      // Collection or points might not exist
-      this.logger.debug(`Failed to delete points from ${collection}: ${error}`);
+      this.logger.debug(`Delete failed for ${collection}: ${error}`);
     }
   }
 
-  async search(collection: string, vector: number[], topK: number): Promise<QdrantSearchResult[]> {
+  async search(
+    collection: string,
+    vector: number[],
+    topK: number,
+    scoreThreshold?: number,
+  ): Promise<QdrantSearchResult[]> {
     try {
       const results = await this.client.search(collection, {
         vector,
         limit: topK,
         with_payload: true,
+        score_threshold: scoreThreshold,
       });
 
-      return results.map((r) => ({
-        id: typeof r.id === 'string' ? r.id : String(r.id),
-        score: r.score,
-        payload: (r.payload as Record<string, unknown>) || {},
+      return results.map((result) => ({
+        id: result.id,
+        score: result.score,
+        payload: (result.payload as Record<string, unknown>) ?? {},
       }));
     } catch (error) {
-      // Collection might not exist yet
-      this.logger.debug(`Search failed for collection ${collection}: ${error}`);
+      this.logger.debug(`Search failed for ${collection}: ${error}`);
       return [];
     }
   }

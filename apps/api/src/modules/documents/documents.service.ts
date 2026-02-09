@@ -109,15 +109,9 @@ export class DocumentsService {
     // Delete from MinIO
     await this.storage.deleteFile(DOCUMENTS_BUCKET, document.minioKey);
 
-    // Delete from vector database if document was processed
-    if (document.chunkCount && document.chunkCount > 0) {
-      await this.ragService.deleteDocumentChunks(
-        document.agent.slug,
-        document.id,
-        document.chunkCount,
-      );
-      this.logger.log(`Deleted ${document.chunkCount} chunks from vector database`);
-    }
+    // Delete from vector database
+    await this.ragService.deleteDocument(document.agent.slug, document.id);
+    this.logger.log(`Deleted document from vector database`);
 
     // Delete from PostgreSQL
     await this.prisma.document.delete({

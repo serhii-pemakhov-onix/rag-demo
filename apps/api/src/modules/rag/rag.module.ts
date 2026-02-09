@@ -5,7 +5,7 @@ import { QdrantModule } from '../../providers/qdrant/qdrant.module';
 import { RagService } from './rag.service';
 
 @Module({
-  imports: [OllamaModule, QdrantModule, LlamaIndexModule],
+  imports: [LlamaIndexModule, OllamaModule, QdrantModule],
   providers: [RagService],
   exports: [RagService],
 })

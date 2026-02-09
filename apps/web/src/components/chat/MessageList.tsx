@@ -39,7 +39,9 @@ export function MessageList({ messages, isTyping, sendCount = 0 }: MessageListPr
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) { return; }
+    if (!container) {
+      return;
+    }
     const handleScroll = () => {
       isNearBottomRef.current =
         container.scrollHeight - container.scrollTop - container.clientHeight < 100;

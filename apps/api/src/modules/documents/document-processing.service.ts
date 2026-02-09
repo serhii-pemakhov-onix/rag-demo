@@ -50,16 +50,8 @@ export class DocumentProcessingService {
 
       this.logger.log(`Parsed document, text length: ${text.length} characters`);
 
-      // Chunk the text
-      const chunks = this.rag.chunkText(text);
-      this.logger.log(`Created ${chunks.length} chunks`);
-
-      // Generate embeddings
-      const embeddings = await this.rag.generateEmbeddings(chunks);
-      this.logger.log(`Generated ${embeddings.length} embeddings`);
-
-      // Store in vector database
-      await this.rag.storeArticleChunks(document.agent.slug, chunks, embeddings, {
+      // Ingest into vector database (LlamaIndex handles chunking and embedding)
+      const chunkCount = await this.rag.ingestDocument(document.agent.slug, text, {
         documentId: document.id,
         agentId: document.agentId,
         filename: document.filename,
@@ -71,14 +63,14 @@ export class DocumentProcessingService {
         where: { id: documentId },
         data: {
           status: DocumentStatus.COMPLETED,
-          chunkCount: chunks.length,
+          chunkCount,
           processedAt: new Date(),
           error: null,
         },
       });
 
       this.logger.log(
-        `Document ${document.title} processed successfully with ${chunks.length} chunks`,
+        `Document ${document.title} processed successfully with ${chunkCount} chunks`,
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

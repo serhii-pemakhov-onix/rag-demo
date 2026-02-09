@@ -86,7 +86,7 @@ function ArticlesPage() {
     resolver: zodResolver(uploadSchema),
     defaultValues: {
       title: '',
-      agentId: '',
+      agentId: localStorage.getItem('agent:articles:upload') ?? '',
     },
   });
 
@@ -117,7 +117,7 @@ function ArticlesPage() {
         title: data.title,
         agentId: data.agentId,
       });
-      form.reset();
+      form.reset({ title: '', agentId: data.agentId });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -134,20 +134,27 @@ function ArticlesPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!documentToDelete) { return; }
+    if (!documentToDelete) {
+      return;
+    }
     await deleteMutation.mutateAsync(documentToDelete);
     setDeleteDialogOpen(false);
     setDocumentToDelete(null);
   };
 
   const formatSize = (bytes: number) => {
-    if (bytes < 1024) { return `${bytes} B`; }
-    if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)} KB`; }
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleAgentCreated = (agentId: string) => {
     form.setValue('agentId', agentId);
+    localStorage.setItem('agent:articles:upload', agentId);
   };
 
   return (
@@ -190,7 +197,10 @@ function ArticlesPage() {
                     ) : (
                       <div className="flex gap-2">
                         <Select
-                          onValueChange={field.onChange}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            localStorage.setItem('agent:articles:upload', value);
+                          }}
                           value={field.value}
                           disabled={agentsLoading}
                         >
@@ -266,8 +276,11 @@ function ArticlesPage() {
                 onValueChange={(value) => {
                   const next = value === 'all' ? undefined : value;
                   setFilterAgentId(next);
-                  if (next) { localStorage.setItem('agent:articles', next); }
-                  else { localStorage.removeItem('agent:articles'); }
+                  if (next) {
+                    localStorage.setItem('agent:articles', next);
+                  } else {
+                    localStorage.removeItem('agent:articles');
+                  }
                 }}
               >
                 <SelectTrigger>

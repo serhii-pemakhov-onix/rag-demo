@@ -51,7 +51,7 @@ export class ChatService {
       throw new BadRequestException('Agent is not active');
     }
 
-    // 2. Search Qdrant for relevant context (parallel search for articles and images)
+    // 2. Search for relevant context (parallel search for articles and images)
     const documentContextParts: string[] = [];
     const imageContextParts: string[] = [];
     const images: ChatImageDto[] = [];
@@ -60,21 +60,21 @@ export class ChatService {
     const seenImageIds = new Set<string>();
 
     try {
-      this.logger.log(`Searching Qdrant for agent slug="${agent.slug}"...`);
+      this.logger.log(`Searching for agent slug="${agent.slug}"...`);
       const { articles, images: imageResults } = await this.ragService.searchSimilar(
         agent.slug,
         dto.message,
       );
-      this.logger.log(`Qdrant returned ${articles.length} articles, ${imageResults.length} images`);
+      this.logger.log(`Search returned ${articles.length} articles, ${imageResults.length} images`);
 
       // Process articles
       for (const article of articles) {
         const { metadata, content, score } = article;
 
-        // Add chunk text to context regardless of dedup
+        // Add chunk text to context
         if (content) {
           documentContextParts.push(
-            `[${documentContextParts.length + imageContextParts.length + 1}] (source: ${metadata.filename}, chunk ${metadata.chunkIndex + 1}/${metadata.totalChunks})\n${content}`,
+            `[${documentContextParts.length + imageContextParts.length + 1}] (source: ${metadata.filename})\n${content}`,
           );
         }
 
@@ -102,10 +102,10 @@ export class ChatService {
 
       // Process images
       for (const imageResult of imageResults) {
-        const { metadata, description, score } = imageResult;
+        const { metadata, content, score } = imageResult;
         const imageId = metadata.imageId;
 
-        if (seenImageIds.has(imageId)) {
+        if (!imageId || seenImageIds.has(imageId)) {
           continue;
         }
         seenImageIds.add(imageId);
@@ -119,7 +119,7 @@ export class ChatService {
               id: imageId,
               url,
               filename: image.filename,
-              description: description || metadata.subject || image.filename,
+              description: content || metadata.subject || image.filename,
             });
 
             sources.push({
@@ -130,7 +130,7 @@ export class ChatService {
             });
 
             imageContextParts.push(
-              `[${documentContextParts.length + imageContextParts.length + 1}] (source: ${image.filename})\n${description}`,
+              `[${documentContextParts.length + imageContextParts.length + 1}] (source: ${image.filename})\n${content}`,
             );
           }
         } catch (error) {
@@ -155,7 +155,8 @@ export class ChatService {
     const contextParts: string[] = [];
     if (documentContextParts.length > 0 || imageContextParts.length > 0) {
       contextParts.push(
-        "Use the following context to answer the user's question. If the context doesn't contain relevant information, say so honestly.",
+        "Use the following context to answer the user's question. If the context doesn't contain relevant information, say so honestly.\n" +
+          'IMPORTANT: Always respond in the same language the user is writing in, regardless of the language of the context below.',
       );
 
       if (documentContextParts.length > 0) {
@@ -189,8 +190,8 @@ export class ChatService {
         role: 'user',
         content:
           `${dto.message}\n\n` +
-          `[Note: ${images.length} relevant image(s) are already displayed in the chat UI. ` +
-          'Do not say you cannot display or show images. Describe what the images depict based on the image context provided.]',
+          '[Note: A relevant image is already displayed in the chat UI. ' +
+          'Do not say you cannot display or show images. Describe what the image depicts based on the image context provided.]',
       });
     } else {
       messages.push({ role: 'user', content: dto.message });

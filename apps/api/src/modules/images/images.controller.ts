@@ -31,13 +31,13 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { SkipAuth } from '../../common/decorators/skip-auth.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ImageValidationPipe } from '../../common/pipes/image-validation.pipe';
-import { ImagesService } from './images.service';
 import {
   GetImagesQueryDto,
   ImageResponseDto,
   ImageWithAgentResponseDto,
   UploadImageDto,
 } from './dto/image.dto';
+import { ImagesService } from './images.service';
 
 @ApiTags('images')
 @Controller('images')

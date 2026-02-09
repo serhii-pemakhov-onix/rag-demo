@@ -23,13 +23,13 @@ export function Message({ content, role, images, sources, isTyping }: MessagePro
         )}
       >
         {!isUser && images && images.length > 0 && (
-          <div className={cn('grid grid-cols-2 gap-2', content && 'mb-3')}>
+          <div className={cn(content && 'mb-3')}>
             {images.map((image) => (
               <img
                 key={image.id}
                 src={image.url}
                 alt={image.description}
-                className="h-auto w-full rounded-md object-cover"
+                className="h-auto max-w-full rounded-md object-cover"
               />
             ))}
           </div>

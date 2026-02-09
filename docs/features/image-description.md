@@ -85,7 +85,7 @@ The structured description is converted to natural language for embedding:
 Subject: Mountain landscape at sunset. Setting: Mountain range with valley, golden hour lighting. Objects: mountains, trees, clouds, sun. Colors: orange, purple, gold, dark blue. Mood: Peaceful, majestic, serene. Style: Photograph, landscape.
 ```
 
-This text is then embedded using `nomic-embed-text` (configurable via `OLLAMA_EMBEDDING_MODEL`) with prefix `search_document:`.
+This text is then embedded using `nomic-embed-text` (configurable via `OLLAMA_EMBEDDING_MODEL`).
 
 ## Processing Flow
 
@@ -93,7 +93,7 @@ This text is then embedded using `nomic-embed-text` (configurable via `OLLAMA_EM
 ┌─────────────────────────────────────────────────────────────────┐
 │                   Image Upload (Synchronous)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. Validate image (size ≤ 5MB, type: jpeg/png/webp/gif)        │
+│  1. Validate image (size ≤ 5MB, type: jpeg/png/webp/avif/gif)        │
 │  2. Upload to MinIO (key: {agentId}/{imageId}/{filename})       │
 │  3. Create image record (status: PENDING)                        │
 │  4. Trigger async processing (non-blocking)                      │
@@ -114,7 +114,7 @@ This text is then embedded using `nomic-embed-text` (configurable via `OLLAMA_EM
 │     - Custom instruction: use raw text directly for embedding    │
 │     - Default prompt: parse JSON, convert to embedding text      │
 │  6. Generate embedding (nomic-embed-text)                        │
-│  7. Store in Chroma (collection: agent_{slug})                   │
+│  7. Store in Qdrant (collection: {slug}_images)                  │
 │  8. Update status: COMPLETED, store description                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -169,7 +169,7 @@ The raw text response provides richer, more natural descriptions for semantic se
 }
 ```
 
-### Chroma Metadata
+### Qdrant Metadata
 
 ```typescript
 {
@@ -203,7 +203,7 @@ The raw text response provides richer, more natural descriptions for semantic se
 - [x] Vision model generates structured JSON description
 - [x] Agent's `visionPromptInstruction` replaces default prompt, raw text used for embedding
 - [x] Description is converted to natural language for embedding
-- [x] Embeddings are stored in Chroma with agentId filter
+- [x] Embeddings are stored in Qdrant with agentId filter
 - [x] Failed processing sets status to FAILED with error
 - [x] Vision model is configurable via OLLAMA_VISION_MODEL env var
 - [x] Image deletion removes embeddings from vector database
@@ -227,7 +227,7 @@ Before sending to vision model:
 
 When an image is deleted:
 1. File removed from MinIO storage
-2. Embedding removed from Chroma vector database (collection: `agent_{slug}`, id: `image_{imageId}`)
+2. Embedding removed from Qdrant vector database (collection: `{slug}_images`, id: `image_{imageId}`)
 3. Record removed from PostgreSQL
 
 ### Environment Variables
@@ -242,7 +242,7 @@ OLLAMA_VISION_MODEL=llava  # or any Ollama model with vision capability
 - [Document Chunking](./document-chunking.md) - Embedding strategy
 - MinIO - Image storage
 - Ollama - Vision model
-- Chroma Cloud - Vector storage
+- Qdrant - Vector storage
 
 ## Out of Scope
 

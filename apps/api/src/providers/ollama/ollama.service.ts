@@ -50,6 +50,7 @@ export class OllamaService implements OnModuleInit {
   private embeddingModel: string;
   private visionModel: string;
   private chatModel: string;
+  private chatTemperature: number;
 
   constructor(private configService: ConfigService) {
     const host = this.configService.get<string>('OLLAMA_HOST', 'localhost');
@@ -61,6 +62,9 @@ export class OllamaService implements OnModuleInit {
     );
     this.visionModel = this.configService.get<string>('OLLAMA_VISION_MODEL', 'llava');
     this.chatModel = this.configService.get<string>('OLLAMA_CHAT_MODEL', 'llama3.2');
+    this.chatTemperature = Number.parseFloat(
+      this.configService.get<string>('OLLAMA_CHAT_TEMPERATURE', '0.8'),
+    );
   }
 
   async onModuleInit() {
@@ -127,6 +131,14 @@ export class OllamaService implements OnModuleInit {
     return data.embedding;
   }
 
+  async translateToEnglish(text: string): Promise<string> {
+    const { response } = await this.generateCompletion(
+      'Translate the following text to English. Output ONLY the translation, nothing else. ' +
+        `If the text is already in English, output it unchanged.\n\n${text}`,
+    );
+    return response.trim();
+  }
+
   async generateCompletion(
     prompt: string,
     context?: string,
@@ -166,6 +178,7 @@ export class OllamaService implements OnModuleInit {
         model,
         messages,
         stream: false,
+        options: { temperature: this.chatTemperature },
       }),
     });
 
@@ -190,6 +203,7 @@ export class OllamaService implements OnModuleInit {
         model,
         messages,
         stream: true,
+        options: { temperature: this.chatTemperature },
       }),
     });
 
@@ -209,7 +223,9 @@ export class OllamaService implements OnModuleInit {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) { break; }
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -217,7 +233,9 @@ export class OllamaService implements OnModuleInit {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed) { continue; }
+          if (!trimmed) {
+            continue;
+          }
 
           const chunk: OllamaChatStreamChunk = JSON.parse(trimmed);
           yield { content: chunk.message.content, done: chunk.done };

@@ -18,7 +18,7 @@ This approach helps reduce hallucinations and enables the model to access up-to-
 
 ## Tech Stack
 
-**Backend:** Nest.js, Prisma, PostgreSQL, Redis, MinIO, Chroma, Ollama
+**Backend:** Nest.js, Prisma, PostgreSQL, Redis, MinIO, Qdrant, LlamaIndex, Ollama
 
 **Frontend:** React, Tanstack Router, Tanstack Query, shadcn/ui
 

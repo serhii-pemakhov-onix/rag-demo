@@ -52,12 +52,8 @@ export class ImageProcessingService {
       );
       this.logger.log(`Embedding text (first 200 chars): ${embeddingText.substring(0, 200)}...`);
 
-      // Generate embedding
-      const embedding = await this.ollama.generateEmbedding(embeddingText);
-      this.logger.log(`Generated embedding with ${embedding.length} dimensions`);
-
-      // Store in vector database
-      await this.rag.storeImageEmbedding(image.agent.slug, embedding, {
+      // Ingest into vector database (LlamaIndex handles embedding)
+      await this.rag.ingestImage(image.agent.slug, {
         imageId: image.id,
         agentId: image.agentId,
         filename: image.filename,

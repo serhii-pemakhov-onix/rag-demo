@@ -10,12 +10,13 @@ Chat is the public-facing interface where users interact with agents via natural
 
 1. User selects an active agent
 2. User types a query (about documents, images, or general questions)
-3. Query is embedded using Ollama (`search_query:` prefix)
-4. Vector search retrieves relevant chunks from Chroma, filtered by `agentId`
-5. Retrieved results may include document chunks and/or image descriptions
-6. For image results, the original image URL is resolved from MinIO
-7. Agent's system prompt + retrieved context + user query are sent to Ollama chat model
-8. Response is returned with generated text, inline images, and source references
+3. Query is embedded using Ollama
+4. **Separate vector searches** are performed:
+   - Articles collection (`{slug}_articles`) for document chunks
+   - Images collection (`{slug}_images`) for image descriptions
+5. For image results, the original image URL is resolved from MinIO
+6. Agent's system prompt + combined context + user query are sent to Ollama chat model
+7. Response is returned with generated text, inline images, and source references
 
 ### Agent Selection
 
@@ -43,9 +44,11 @@ Each response contains:
 
 ### Retrieval Strategy
 
-- Top K results retrieved from Chroma (default: 5)
-- Results include both document chunks and image descriptions
-- Each result carries metadata to distinguish type (`documentId` vs `imageId`)
+Uses **LlamaIndex** for RAG orchestration with separate Qdrant collections:
+
+- **Articles retrieval**: Query `{slug}_articles` collection (default: top 5)
+- **Images retrieval**: Query `{slug}_images` collection (default: top 3)
+- Results are fetched in parallel for performance
 - Document chunks provide text context for the LLM prompt
 - Image results provide both text context (description) and the image URL for display
 
@@ -64,17 +67,21 @@ Each response contains:
 ├─────────────────────────────────────────────────────────────────┤
 │  1. Validate: message is non-empty, agentId is valid             │
 │  2. Load agent (systemPrompt, slug)                              │
-│  3. Embed query using Ollama (prefix: search_query:)             │
+│  3. Embed query using Ollama                                     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Retrieve Context                              │
+│              Retrieve Context (Parallel Queries)                 │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. Query Chroma collection: agent_{slug}                        │
-│     - Filter: where { agentId: selectedAgentId }                 │
+│  1. Query {slug}_articles collection:                            │
 │     - Limit: top K results (default 5)                           │
-│  2. Separate results into document chunks and image matches      │
+│     - Returns: document chunks with metadata                     │
+│                                                                  │
+│  2. Query {slug}_images collection:                              │
+│     - Limit: top K results (default 3)                           │
+│     - Returns: image descriptions with metadata                  │
+│                                                                  │
 │  3. For image matches: resolve MinIO URLs for display            │
 │  4. Build context string from retrieved chunks/descriptions      │
 └─────────────────────────────────────────────────────────────────┘
@@ -91,21 +98,6 @@ Each response contains:
 │  2. Call Ollama chat model                                       │
 │  3. Return: generated text + image URLs + sources                │
 └─────────────────────────────────────────────────────────────────┘
-```
-
-### Result Classification
-
-Retrieved results from Chroma are classified by their metadata:
-
-```
-Chroma Result
-    │
-    ├── Has documentId? → Document chunk
-    │   └── Use chunk text as context for LLM
-    │
-    └── Has imageId? → Image match
-        ├── Use description text as context for LLM
-        └── Resolve MinIO URL for image display
 ```
 
 ## User Stories
@@ -180,14 +172,21 @@ Chat does not introduce new database tables. It reads from existing models:
 - **Document** - Title for source references
 - **Image** - Filename, MinIO key for URL resolution, description
 
-### Chroma Query
+### Qdrant Queries
+
+Separate queries to each collection:
 
 ```typescript
-collection.query({
-  queryEmbeddings: [queryEmbedding],
-  where: { agentId: selectedAgentId },
-  nResults: 5,
-  include: ['documents', 'metadatas', 'distances'],
+// Articles retrieval
+qdrantClient.search(`${agent.slug}_articles`, {
+  vector: queryEmbedding,
+  limit: 5,
+});
+
+// Images retrieval
+qdrantClient.search(`${agent.slug}_images`, {
+  vector: queryEmbedding,
+  limit: 3,
 });
 ```
 
@@ -224,7 +223,7 @@ User: {current query}
 
 ### Image URL Resolution
 
-When a Chroma result contains an `imageId`:
+When a Qdrant result contains an `imageId`:
 1. Look up the image record in PostgreSQL
 2. Get the `minioKey` (format: `images/{agentId}/{imageId}/{filename}`)
 3. Generate a presigned URL from MinIO for temporary access
@@ -247,24 +246,25 @@ Results below a minimum similarity threshold should be excluded from context to 
 | Invalid agentId | 400 Bad Request |
 | Inactive agent | 400 Bad Request with message |
 | Ollama unavailable | 503 Service Unavailable |
-| Chroma unavailable | 503 Service Unavailable |
+| Qdrant unavailable | 503 Service Unavailable |
 | Empty search results | Respond without context (agent answers from general knowledge) |
 | MinIO URL generation fails | Omit image from response, log error |
 
 ### Environment Variables
 
 ```bash
-OLLAMA_CHAT_MODEL=llama3.2           # Chat LLM model
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text-v2-moe  # Query embedding model
+OLLAMA_CHAT_MODEL=llama3.2          # Chat LLM model
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text  # Query embedding model
 ```
 
 ## Dependencies
 
 - [Agents](./agents.md) - Agent selection, system prompts, knowledge base scoping
-- [Document Chunking](./document-chunking.md) - Document chunks stored in Chroma
-- [Image Description](./image-description.md) - Image descriptions embedded in Chroma
+- [Document Chunking](./document-chunking.md) - Document chunks stored in Qdrant
+- [Image Description](./image-description.md) - Image descriptions embedded in Qdrant
+- LlamaIndex - RAG orchestration
 - Ollama - Embedding generation and chat completion
-- Chroma Cloud - Vector similarity search
+- Qdrant - Vector similarity search (`{slug}_articles`, `{slug}_images` collections)
 - MinIO - Image URL resolution
 
 ## Out of Scope

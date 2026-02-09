@@ -14,7 +14,8 @@ A full-stack RAG (Retrieval-Augmented Generation) application with an admin pane
 | Database | PostgreSQL |
 | Cache | Redis |
 | File Storage | MinIO |
-| Vector Database | Chroma |
+| Vector Database | Qdrant |
+| RAG Framework | LlamaIndex |
 | LLM/Embeddings | Ollama |
 
 ### Frontend
@@ -49,23 +50,23 @@ A full-stack RAG (Retrieval-Augmented Generation) application with an admin pane
 │  └──────────────┘  └──────────────┘  └──────────────────────────┘   │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                    RAG Service                                │   │
-│  │  - Document chunking                                          │   │
+│  │                 RAG Service (LlamaIndex)                      │   │
+│  │  - Document chunking via LlamaIndex                           │   │
 │  │  - Embedding generation (via Ollama)                          │   │
 │  │  - Image description generation (via Ollama)                  │   │
-│  │  - Vector similarity search                                   │   │
+│  │  - Separate retrieval for articles and images                 │   │
 │  │  - Context-augmented response generation                      │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
          │              │              │              │
          ▼              ▼              ▼              ▼
 ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  PostgreSQL  │ │    Redis     │ │    MinIO     │ │    Chroma    │
+│  PostgreSQL  │ │    Redis     │ │    MinIO     │ │    Qdrant    │
 │              │ │              │ │              │ │              │
-│ - Users      │ │ - Token      │ │ - Articles   │ │ - Article    │
-│ - Articles   │ │   blacklist  │ │   (files)    │ │   embeddings │
-│ - Images     │ │ - Cache      │ │ - Images     │ │ - Image      │
-│   (metadata) │ │              │ │              │ │   embeddings │
+│ - Users      │ │ - Token      │ │ - Articles   │ │ - {slug}_    │
+│ - Articles   │ │   blacklist  │ │   (files)    │ │   articles   │
+│ - Images     │ │ - Cache      │ │ - Images     │ │ - {slug}_    │
+│   (metadata) │ │              │ │              │ │   images     │
 └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
                                                           │
                                                           ▼
@@ -117,19 +118,27 @@ A full-stack RAG (Retrieval-Augmented Generation) application with an admin pane
 
 ## RAG Pipeline
 
+Uses **LlamaIndex** for RAG orchestration with **Qdrant** as the vector store.
+
+### Vector Collections (per agent)
+
+Each agent has two separate Qdrant collections:
+- `{agent_slug}_articles` - Text chunks from documents
+- `{agent_slug}_images` - Image descriptions
+
 ### Article Processing Flow
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
 │    Upload    │     │    Store     │     │    Chunk     │     │    Embed     │
-│   Article    │────>│   in MinIO   │────>│   Document   │────>│   Chunks     │
+│   Article    │────>│   in MinIO   │────>│  (LlamaIndex)│────>│   Chunks     │
 │              │     │              │     │              │     │   (Ollama)   │
 └──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
                             │                                         │
                             ▼                                         ▼
                      ┌──────────────┐                          ┌──────────────┐
-                     │  PostgreSQL  │                          │    Chroma    │
-                     │  (metadata)  │                          │  (vectors)   │
+                     │  PostgreSQL  │                          │    Qdrant    │
+                     │  (metadata)  │                          │ {slug}_articles│
                      └──────────────┘                          └──────────────┘
 ```
 
@@ -144,25 +153,25 @@ A full-stack RAG (Retrieval-Augmented Generation) application with an admin pane
                             │                                         │
                             ▼                                         ▼
                      ┌──────────────┐                          ┌──────────────┐
-                     │  PostgreSQL  │                          │    Chroma    │
-                     │  (metadata)  │                          │  (vectors)   │
+                     │  PostgreSQL  │                          │    Qdrant    │
+                     │  (metadata)  │                          │ {slug}_images │
                      └──────────────┘                          └──────────────┘
 ```
 
 ### Query Flow
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│    User      │     │    Embed     │     │   Retrieve   │     │   Generate   │
-│   Question   │────>│    Query     │────>│   Similar    │────>│   Response   │
-│              │     │   (Ollama)   │     │   (Chroma)   │     │   (Ollama)   │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-                                                │                     │
-                                                ▼                     │
-                                         ┌──────────────┐             │
-                                         │    MinIO     │             │
-                                         │ (fetch docs) │─────────────┘
-                                         └──────────────┘      (context)
+┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐     ┌──────────────┐
+│    User      │     │    Embed     │     │   Separate Retrieval │     │   Generate   │
+│   Question   │────>│    Query     │────>│   - articles search  │────>│   Response   │
+│              │     │   (Ollama)   │     │   - images search    │     │   (Ollama)   │
+└──────────────┘     └──────────────┘     └──────────────────────┘     └──────────────┘
+                                                    │                        │
+                                                    ▼                        │
+                                             ┌──────────────┐                │
+                                             │    MinIO     │                │
+                                             │ (fetch docs) │────────────────┘
+                                             └──────────────┘         (context)
 ```
 
 ## Data Models
@@ -219,10 +228,11 @@ A full-stack RAG (Retrieval-Augmented Generation) application with an admin pane
 └─────────────────────────────┘
 ```
 
-### Chroma Collections
+### Qdrant Collections
 
-- **articles**: Stores article chunk embeddings with metadata (articleId, chunkIndex)
-- **images**: Stores image description embeddings with metadata (imageId)
+Per-agent collections for isolated knowledge bases:
+- **{agent_slug}_articles**: Stores article chunk embeddings with metadata (articleId, chunkIndex)
+- **{agent_slug}_images**: Stores image description embeddings with metadata (imageId)
 
 ## API Endpoints
 
@@ -270,7 +280,8 @@ rag-demo/
 │   │   │   │   └── rag/          # RAG service
 │   │   │   └── providers/        # Third-party service modules
 │   │   │       ├── storage/      # MinIO service
-│   │   │       ├── vector/       # Chroma service
+│   │   │       ├── vector/       # Qdrant service
+│   │   │       ├── llamaindex/   # LlamaIndex service
 │   │   │       └── ollama/       # Ollama service
 │   │   ├── prisma/
 │   │   │   ├── schema.prisma
@@ -301,19 +312,18 @@ Services for local development:
 - **postgres**: PostgreSQL database (port 5432)
 - **redis**: Redis cache (port 6379)
 - **minio**: MinIO object storage (port 9000, console 9001)
+- **qdrant**: Qdrant vector database (port 6333, gRPC 6334)
 - **mailpit**: Email testing server (SMTP 1025, UI 8025)
 
 ### External Services
 
-- **Chroma Cloud**: Vector database (https://trychroma.com)
 - **Ollama**: Install locally from https://ollama.ai (port 11434)
   ```bash
   # Required models
-  ollama pull nomic-embed-text-v2-moe  # Embeddings
-  ollama pull llama3.2                  # Chat
-  ollama pull x/z-image-turbo:latest    # Image descriptions
+  ollama pull nomic-embed-text  # Embeddings
+  ollama pull llama3.2          # Chat
+  ollama pull llava             # Image descriptions
   ```
-  Note: `nomic-embed-text-v2-moe` requires prefixes (`search_query:` for queries, `search_document:` for documents)
 
 ## Configuration
 
@@ -334,17 +344,16 @@ MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=ragdemo
 
-# Chroma Cloud
-CHROMA_API_KEY=your-chroma-api-key
-CHROMA_TENANT=your-tenant-id
-CHROMA_DATABASE=ragdemo
+# Qdrant
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
 
 # Ollama
 OLLAMA_HOST=localhost
 OLLAMA_PORT=11434
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text-v2-moe
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 OLLAMA_CHAT_MODEL=llama3.2
-OLLAMA_VISION_MODEL=x/z-image-turbo:latest
+OLLAMA_VISION_MODEL=llava
 
 # JWT
 JWT_ACCESS_SECRET=your-access-secret

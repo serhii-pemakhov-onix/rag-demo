@@ -73,7 +73,9 @@ export async function streamChatMessage(
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) { break; }
+      if (done) {
+        break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
       const parts = buffer.split('\n\n');
@@ -81,7 +83,9 @@ export async function streamChatMessage(
 
       for (const part of parts) {
         const trimmed = part.trim();
-        if (!trimmed) { continue; }
+        if (!trimmed) {
+          continue;
+        }
 
         let eventType = '';
         let data = '';
@@ -94,7 +98,9 @@ export async function streamChatMessage(
           }
         }
 
-        if (!eventType || !data) { continue; }
+        if (!eventType || !data) {
+          continue;
+        }
 
         const parsed = JSON.parse(data);
 

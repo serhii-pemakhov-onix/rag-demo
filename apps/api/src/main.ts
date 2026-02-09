@@ -63,12 +63,16 @@ async function bootstrap() {
     const order: Record<string, number> = { post: 0, get: 1, patch: 2, put: 3, delete: 4 };
     const aOrder = order[a.get('method')] ?? 99;
     const bOrder = order[b.get('method')] ?? 99;
-    if (aOrder !== bOrder) { return aOrder - bOrder; }
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
     const aPath = a.get('path') ?? '';
     const bPath = b.get('path') ?? '';
     const aBlocks = aPath.split('/').length;
     const bBlocks = bPath.split('/').length;
-    if (aBlocks !== bBlocks) { return aBlocks > bBlocks ? 1 : -1; }
+    if (aBlocks !== bBlocks) {
+      return aBlocks > bBlocks ? 1 : -1;
+    }
     return aPath > bPath ? 1 : -1;
   };
 

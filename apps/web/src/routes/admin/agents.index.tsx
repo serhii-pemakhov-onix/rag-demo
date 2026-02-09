@@ -54,7 +54,9 @@ function AgentsIndexPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!agentToDelete) { return; }
+    if (!agentToDelete) {
+      return;
+    }
     await deleteMutation.mutateAsync(agentToDelete);
     setDeleteDialogOpen(false);
     setAgentToDelete(null);

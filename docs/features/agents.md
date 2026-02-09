@@ -25,9 +25,13 @@ An agent represents a specialized assistant with:
 
 ### Agent Isolation
 
+Each agent has its own pair of Qdrant collections for complete isolation:
+- `{agent_slug}_articles` - Document chunks
+- `{agent_slug}_images` - Image descriptions
+
 When a user chats with an agent:
 1. User query is embedded
-2. Vector search is filtered by `agentId`
+2. Separate vector searches query agent's collections
 3. Only documents bound to that agent are retrieved
 4. Response is generated with agent's persona
 
@@ -36,16 +40,19 @@ User → "I'm feeling anxious"
          │
          ▼
     ┌─────────────┐
-    │ Psychologist│ ← Active agent
+    │ Psychologist│ ← Active agent (slug: psychologist)
     │   Agent     │
     └─────────────┘
          │
-         ▼ Filter: agentId = "psychologist-uuid"
-    ┌─────────────┐
-    │   Chroma    │ → Only psychology docs returned
-    └─────────────┘
-         │
-         ▼
+         ├─────────────────────────────┐
+         ▼                             ▼
+    ┌───────────────────┐    ┌───────────────────┐
+    │ psychologist_     │    │ psychologist_     │
+    │ articles          │    │ images            │
+    └───────────────────┘    └───────────────────┘
+         │                             │
+         └──────────┬──────────────────┘
+                    ▼
     Response with psychologist persona
 ```
 
@@ -81,15 +88,22 @@ Each document belongs to exactly one agent:
 }
 ```
 
-### Chroma Metadata
+### Qdrant Collections
 
-Agent ID included in chunk metadata for filtered search:
+Each agent has dedicated collections (no filtering needed):
 
 ```typescript
+// Articles collection: {slug}_articles
 {
   documentId: string;
-  agentId: string;          // For filtering
   chunkIndex: number;
+  // ... other metadata
+}
+
+// Images collection: {slug}_images
+{
+  imageId: string;
+  filename: string;
   // ... other metadata
 }
 ```
@@ -141,15 +155,21 @@ List documents bound to an agent.
 
 ## Technical Notes
 
-### Chroma Filtering
+### Qdrant Collection per Agent
 
-Use Chroma's `where` clause for agent-scoped search:
+Each agent has dedicated collections, no filtering required:
 
 ```typescript
-collection.query({
-  queryEmbeddings: [embedding],
-  where: { agentId: activeAgentId },
-  nResults: 5
+// Search articles for agent with slug "psychologist"
+qdrantClient.search('psychologist_articles', {
+  vector: queryEmbedding,
+  limit: 5
+});
+
+// Search images
+qdrantClient.search('psychologist_images', {
+  vector: queryEmbedding,
+  limit: 3
 });
 ```
 
@@ -176,7 +196,7 @@ Consider having a "General Assistant" as default agent for:
 
 - [Document Upload](./document-upload.md) - Documents bound to agents
 - [Document Chunking](./document-chunking.md) - Metadata includes agentId
-- Chroma Cloud - Filtered vector search
+- Qdrant - Filtered vector search
 - PostgreSQL - Agent storage
 
 ## Out of Scope
