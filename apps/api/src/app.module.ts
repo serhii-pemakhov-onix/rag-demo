@@ -8,6 +8,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AgentsModule } from './modules/agents/agents.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ImagesModule } from './modules/images/images.module';
 import { RagModule } from './modules/rag/rag.module';
@@ -31,6 +32,7 @@ import { StorageModule } from './providers/storage/storage.module';
     PrismaModule,
     AuthModule,
     AgentsModule,
+    DashboardModule,
     DocumentsModule,
     ImagesModule,
     ChatModule,

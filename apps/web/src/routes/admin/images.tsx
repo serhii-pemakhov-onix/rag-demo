@@ -4,9 +4,8 @@ import { Plus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import type { DocumentStatus } from '@/api/admin';
 import { AddAgentDialog } from '@/components/admin/AddAgentDialog';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
@@ -42,31 +41,6 @@ const uploadSchema = z.object({
 });
 
 type UploadFormValues = z.infer<typeof uploadSchema>;
-
-function StatusBadge({ status }: { status: DocumentStatus }) {
-  const variants: Record<
-    DocumentStatus,
-    { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className?: string }
-  > = {
-    PENDING: {
-      variant: 'outline',
-      className: 'border-yellow-500 text-yellow-700 dark:text-yellow-400',
-    },
-    PROCESSING: { variant: 'default' },
-    COMPLETED: {
-      variant: 'outline',
-      className: 'border-green-500 text-green-700 dark:text-green-400',
-    },
-    FAILED: { variant: 'destructive' },
-  };
-
-  const { variant, className } = variants[status];
-  return (
-    <Badge variant={variant} className={className}>
-      {status}
-    </Badge>
-  );
-}
 
 function ImagesPage() {
   const { data: agents, isLoading: agentsLoading } = useAgents();

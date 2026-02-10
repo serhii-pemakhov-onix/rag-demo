@@ -155,3 +155,39 @@ export async function uploadImage(file: File, agentId: string): Promise<Image> {
 export async function deleteImage(id: string): Promise<void> {
   await api.delete(`/images/${id}`);
 }
+
+// Dashboard
+export interface DashboardOverview {
+  totalAgents: number;
+  activeAgents: number;
+  inactiveAgents: number;
+  totalDocuments: number;
+  totalImages: number;
+  totalChunks: number;
+}
+
+export interface AgentContent {
+  agentId: string;
+  agentName: string;
+  documentCount: number;
+  imageCount: number;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  type: 'document' | 'image';
+  name: string;
+  agentName: string;
+  status: DocumentStatus;
+  createdAt: string;
+}
+
+export interface DashboardStats {
+  overview: DashboardOverview;
+  contentPerAgent: AgentContent[];
+  recentActivity: RecentActivityItem[];
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  return api.get<DashboardStats>('/dashboard');
+}
