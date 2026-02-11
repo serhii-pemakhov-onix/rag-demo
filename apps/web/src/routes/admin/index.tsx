@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Bot, FileText, Image, Layers } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { Bot, FileText, Image, Layers } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import type { AgentContent, DashboardOverview, RecentActivityItem } from '@/api/admin';
 import { StatusBadge } from '@/components/admin/status-badge';

@@ -64,12 +64,24 @@ export class DashboardService {
       this.prisma.document.findMany({
         take: 10,
         orderBy: { createdAt: 'desc' },
-        select: { id: true, title: true, status: true, createdAt: true, agent: { select: { name: true } } },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          createdAt: true,
+          agent: { select: { name: true } },
+        },
       }),
       this.prisma.image.findMany({
         take: 10,
         orderBy: { createdAt: 'desc' },
-        select: { id: true, filename: true, status: true, createdAt: true, agent: { select: { name: true } } },
+        select: {
+          id: true,
+          filename: true,
+          status: true,
+          createdAt: true,
+          agent: { select: { name: true } },
+        },
       }),
     ]);
 

@@ -29,13 +29,12 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 function AgentsIndexPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
-  const { data: rawData, isLoading, error } = useAgentsPaginated(page, limit);
+  const { data: paginatedData, isLoading, error } = useAgentsPaginated(page, limit);
   const updateMutation = useUpdateAgent();
   const deleteMutation = useDeleteAgent();
 
-  // Handle both paginated response and raw array (backward compat)
-  const agents = rawData ? (Array.isArray(rawData) ? rawData : rawData.data) : [];
-  const meta = rawData && !Array.isArray(rawData) ? rawData.meta : null;
+  const agents = paginatedData?.data ?? [];
+  const meta = paginatedData?.meta ?? null;
 
   const [addAgentOpen, setAddAgentOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

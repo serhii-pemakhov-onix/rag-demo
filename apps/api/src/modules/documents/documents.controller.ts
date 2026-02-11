@@ -45,7 +45,7 @@ export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all documents' })
+  @ApiOperation({ summary: 'Get all documents (with optional pagination)' })
   @ApiQuery({
     name: 'agentId',
     required: false,
@@ -57,15 +57,30 @@ export class DocumentsController {
     description: 'Filter by status',
     enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'],
   })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (1-indexed)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiResponse({
     status: 200,
-    description: 'List of documents',
+    description: 'List of documents (paginated if query params provided)',
     type: [DocumentWithAgentResponseDto],
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
   async findAll(@Query() query: GetDocumentsQueryDto) {
-    return this.documentsService.findAll(query);
+    if (query.page === undefined && query.limit === undefined) {
+      return this.documentsService.findAll(query);
+    }
+    return this.documentsService.findAllPaginated(query);
   }
 
   @Get(':id')

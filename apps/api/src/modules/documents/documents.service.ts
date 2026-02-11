@@ -22,6 +22,48 @@ export class DocumentsService {
   ) {}
 
   async findAll(query?: GetDocumentsQueryDto) {
+    const where = this.buildWhereFilter(query);
+
+    return this.prisma.document.findMany({
+      where,
+      include: { agent: { select: { id: true, name: true, slug: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findAllPaginated(query: GetDocumentsQueryDto) {
+    const where = this.buildWhereFilter(query);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.prisma.document.findMany({
+        where,
+        include: { agent: { select: { id: true, name: true, slug: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.document.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+    };
+  }
+
+  private buildWhereFilter(query?: GetDocumentsQueryDto) {
     const where: { agentId?: string; status?: DocumentStatus } = {};
 
     if (query?.agentId) {
@@ -31,11 +73,7 @@ export class DocumentsService {
       where.status = query.status;
     }
 
-    return this.prisma.document.findMany({
-      where,
-      include: { agent: { select: { id: true, name: true, slug: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    return where;
   }
 
   async findById(id: string) {

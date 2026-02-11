@@ -59,8 +59,8 @@ export async function getAgents(): Promise<Agent[]> {
 export async function getAgentsPaginated(
   page: number,
   limit: number,
-): Promise<PaginatedResponse<Agent> | Agent[]> {
-  return api.get<PaginatedResponse<Agent> | Agent[]>(`/agents?page=${page}&limit=${limit}`);
+): Promise<PaginatedResponse<Agent>> {
+  return api.get<PaginatedResponse<Agent>>(`/agents?page=${page}&limit=${limit}`);
 }
 
 export async function getAgent(id: string): Promise<AgentWithSystemPrompt> {
@@ -88,6 +88,18 @@ export async function deleteAgent(id: string): Promise<void> {
 export async function getDocuments(agentId?: string): Promise<Document[]> {
   const params = agentId ? `?agentId=${agentId}` : '';
   return api.get<Document[]>(`/documents${params}`);
+}
+
+export async function getDocumentsPaginated(
+  page: number,
+  limit: number,
+  agentId?: string,
+): Promise<PaginatedResponse<Document>> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (agentId) {
+    params.set('agentId', agentId);
+  }
+  return api.get<PaginatedResponse<Document>>(`/documents?${params}`);
 }
 
 export async function getDocument(id: string): Promise<Document> {

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createFileRoute } from '@tanstack/react-router';
-import { Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -19,7 +19,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -27,7 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAgents, useArticles, useDeleteArticle, useUploadArticle } from '@/hooks/useArticles';
+import {
+  useAgents,
+  useArticlesPaginated,
+  useDeleteArticle,
+  useUploadArticles,
+} from '@/hooks/useArticles';
 
 export const Route = createFileRoute('/admin/articles')({
   component: ArticlesPage,
@@ -35,9 +39,9 @@ export const Route = createFileRoute('/admin/articles')({
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_EXTENSIONS = ['.txt', '.md', '.pdf', '.html', '.docx'];
+const PAGE_LIMIT = 20;
 
 const uploadSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   agentId: z.string().uuid('Please select an agent'),
 });
 
@@ -48,8 +52,15 @@ function ArticlesPage() {
   const [filterAgentId, setFilterAgentId] = useState<string | undefined>(
     () => localStorage.getItem('agent:articles') ?? undefined,
   );
-  const { data: articles, isLoading, error } = useArticles(filterAgentId);
-  const uploadMutation = useUploadArticle();
+  const [page, setPage] = useState(1);
+  const {
+    data: paginatedData,
+    isLoading,
+    error,
+  } = useArticlesPaginated(page, PAGE_LIMIT, filterAgentId);
+  const articles = paginatedData?.data;
+  const meta = paginatedData?.meta;
+  const { upload, uploaded, total, errors: uploadErrors, isUploading } = useUploadArticles();
   const deleteMutation = useDeleteArticle();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [addAgentOpen, setAddAgentOpen] = useState(false);
@@ -59,42 +70,47 @@ function ArticlesPage() {
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
-      title: '',
       agentId: localStorage.getItem('agent:articles:upload') ?? '',
     },
   });
 
   const onSubmit = async (data: UploadFormValues) => {
-    const file = fileInputRef.current?.files?.[0];
+    const files = fileInputRef.current?.files;
 
-    if (!file) {
-      form.setError('root', { message: 'Please select a file' });
+    if (!files || files.length === 0) {
+      form.setError('root', { message: 'Please select at least one file' });
       return;
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      form.setError('root', { message: 'File size exceeds 10MB limit' });
-      return;
+    const fileList = Array.from(files);
+
+    for (const file of fileList) {
+      if (file.size > MAX_FILE_SIZE) {
+        form.setError('root', { message: `${file.name} exceeds 10MB limit` });
+        return;
+      }
+      const ext = `.${file.name.split('.').pop()?.toLowerCase()}`;
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        form.setError('root', {
+          message: `${file.name} has invalid type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`,
+        });
+        return;
+      }
     }
 
-    const ext = `.${file.name.split('.').pop()?.toLowerCase()}`;
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      form.setError('root', {
-        message: `Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`,
-      });
-      return;
-    }
+    form.clearErrors('root');
 
     try {
-      await uploadMutation.mutateAsync({
-        file,
-        title: data.title,
-        agentId: data.agentId,
-      });
-      form.reset({ title: '', agentId: data.agentId });
+      const result = await upload(fileList, data.agentId);
+      if (result.errors.length > 0) {
+        form.setError('root', {
+          message: `${result.errors.length} file(s) failed to upload`,
+        });
+      }
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      setPage(1);
     } catch (err) {
       form.setError('root', {
         message: err instanceof Error ? err.message : 'Upload failed',
@@ -137,13 +153,23 @@ function ArticlesPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Upload Document</CardTitle>
-          <CardDescription>Add a new document to an agent's knowledge base</CardDescription>
+          <CardTitle>Upload Documents</CardTitle>
+          <CardDescription>
+            Add documents to an agent's knowledge base. Title is derived from filename.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {form.formState.errors.root && (
             <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm">
               {form.formState.errors.root.message}
+            </div>
+          )}
+
+          {uploadErrors.length > 0 && (
+            <div className="mb-4 space-y-1 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-destructive text-sm">
+              {uploadErrors.map((err) => (
+                <p key={err}>{err}</p>
+              ))}
             </div>
           )}
 
@@ -207,31 +233,25 @@ function ArticlesPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Document title" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <div className="space-y-2">
-                <FormLabel>File</FormLabel>
-                <FileInput ref={fileInputRef} accept={ALLOWED_EXTENSIONS.join(',')} />
+                <FormLabel>Files</FormLabel>
+                <FileInput ref={fileInputRef} accept={ALLOWED_EXTENSIONS.join(',')} multiple />
                 <FormDescription>
-                  Allowed: {ALLOWED_EXTENSIONS.join(', ')} (max 10MB)
+                  Allowed: {ALLOWED_EXTENSIONS.join(', ')} (max 10MB each). Select multiple files at
+                  once.
                 </FormDescription>
               </div>
 
-              <Button type="submit" disabled={uploadMutation.isPending || agentsLoading}>
-                {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button type="submit" disabled={isUploading || agentsLoading}>
+                  {isUploading ? `Uploading ${uploaded} of ${total}...` : 'Upload'}
+                </Button>
+                {isUploading && (
+                  <p className="text-muted-foreground text-sm">
+                    {uploaded} of {total} uploaded
+                  </p>
+                )}
+              </div>
             </form>
           </Form>
         </CardContent>
@@ -250,6 +270,7 @@ function ArticlesPage() {
                 onValueChange={(value) => {
                   const next = value === 'all' ? undefined : value;
                   setFilterAgentId(next);
+                  setPage(1);
                   if (next) {
                     localStorage.setItem('agent:articles', next);
                   } else {
@@ -279,36 +300,70 @@ function ArticlesPage() {
             <p className="text-muted-foreground">No documents yet. Upload one above.</p>
           )}
           {articles && articles.length > 0 && (
-            <div className="space-y-2">
-              {articles.map((article) => (
-                <div
-                  key={article.id}
-                  className="flex items-center justify-between rounded-md border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-medium">{article.title}</p>
-                      <StatusBadge status={article.status} />
-                    </div>
-                    <p className="truncate text-muted-foreground text-sm">
-                      {article.agent.name} &middot; {article.filename} &middot;{' '}
-                      {formatSize(article.size)}
-                    </p>
-                    {article.error && (
-                      <p className="mt-1 text-destructive text-sm">{article.error}</p>
-                    )}
-                  </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteClick(article.id)}
-                    className="ml-4 flex-shrink-0"
+            <>
+              <div className="space-y-2">
+                {articles.map((article) => (
+                  <div
+                    key={article.id}
+                    className="flex items-center justify-between rounded-md border p-3"
                   >
-                    Delete
-                  </Button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-medium">{article.title}</p>
+                        <StatusBadge status={article.status} />
+                      </div>
+                      <p className="truncate text-muted-foreground text-sm">
+                        {article.agent.name} &middot; {article.filename} &middot;{' '}
+                        {formatSize(article.size)}
+                      </p>
+                      {article.error && (
+                        <p className="mt-1 text-destructive text-sm">{article.error}</p>
+                      )}
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteClick(article.id)}
+                      className="ml-4 flex-shrink-0"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {meta && meta.totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-muted-foreground text-sm">
+                    Showing {(page - 1) * PAGE_LIMIT + 1} to{' '}
+                    {Math.min(page * PAGE_LIMIT, meta.total)} of {meta.total} documents
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={!meta.hasPrevious}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" />
+                      Prev
+                    </Button>
+                    <span className="text-muted-foreground text-sm">
+                      Page {page} of {meta.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={!meta.hasNext}
+                    >
+                      Next
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

@@ -10,7 +10,7 @@ import {
 } from '@/api/admin';
 
 export function useAgentsPaginated(page: number, limit: number) {
-  return useQuery<PaginatedResponse<Agent> | Agent[]>({
+  return useQuery<PaginatedResponse<Agent>>({
     queryKey: ['agents', 'paginated', page, limit],
     queryFn: () => getAgentsPaginated(page, limit),
   });

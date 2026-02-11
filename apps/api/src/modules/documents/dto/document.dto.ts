@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DocumentStatus } from '@prisma/client';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 export class UploadDocumentDto {
   @ApiProperty({
@@ -85,4 +86,19 @@ export class GetDocumentsQueryDto {
   })
   @IsOptional()
   status?: DocumentStatus;
+
+  @ApiPropertyOptional({ example: 1, description: 'Page number (1-indexed)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10, description: 'Items per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
 }

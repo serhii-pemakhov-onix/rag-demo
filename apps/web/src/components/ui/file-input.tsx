@@ -7,8 +7,8 @@ interface FileInputProps
 }
 
 const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
-  ({ className, onFileChange, onChange, ...props }, ref) => {
-    const [fileName, setFileName] = React.useState<string | null>(null);
+  ({ className, onFileChange, onChange, multiple, ...props }, ref) => {
+    const [displayText, setDisplayText] = React.useState<string | null>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     React.useImperativeHandle(ref, () => inputRef.current!, []);
@@ -18,19 +18,27 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0] || null;
-      setFileName(file?.name || null);
-      onFileChange?.(file);
+      const files = e.target.files;
+      if (multiple && files && files.length > 1) {
+        setDisplayText(`${files.length} files selected`);
+      } else {
+        const file = files?.[0] || null;
+        setDisplayText(file?.name || null);
+      }
+      onFileChange?.(files?.[0] || null);
       onChange?.(e);
     };
 
-    // Reset fileName when input is cleared programmatically
+    // Reset displayText when input is cleared programmatically
     React.useEffect(() => {
       const input = inputRef.current;
       if (input && !input.value) {
-        setFileName(null);
+        setDisplayText(null);
       }
     });
+
+    const placeholder = multiple ? 'Click to choose files' : 'Click to choose file';
+    const replaceText = multiple ? 'Click to replace files.' : 'Click to replace file.';
 
     return (
       <button
@@ -43,14 +51,21 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
           className,
         )}
       >
-        <input type="file" ref={inputRef} onChange={handleChange} className="sr-only" {...props} />
+        <input
+          type="file"
+          ref={inputRef}
+          onChange={handleChange}
+          multiple={multiple}
+          className="sr-only"
+          {...props}
+        />
         <span className="text-muted-foreground">
-          {fileName ? (
+          {displayText ? (
             <>
-              Click to replace file. <span className="text-foreground">Chosen: {fileName}</span>
+              {replaceText} <span className="text-foreground">Chosen: {displayText}</span>
             </>
           ) : (
-            'Click to choose file'
+            placeholder
           )}
         </span>
       </button>

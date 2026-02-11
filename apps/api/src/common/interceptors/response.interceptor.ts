@@ -17,17 +17,6 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>
   intercept(context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
     return next.handle().pipe(
       map((response) => {
-        // If response already has data/meta structure, return as-is
-        if (response && typeof response === 'object' && 'data' in response && 'meta' in response) {
-          return response;
-        }
-
-        // Extract meta if present in response
-        if (response && typeof response === 'object' && 'meta' in response) {
-          const { meta, ...data } = response;
-          return { data, meta };
-        }
-
         // Wrap response in standard structure
         return {
           data: response,

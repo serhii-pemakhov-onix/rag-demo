@@ -7,7 +7,13 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["apps/api/src/**", "apps/api/test/**", "apps/api/prisma/**", "apps/web/src/**"]
+    "includes": [
+      "apps/api/src/**",
+      "apps/api/test/**",
+      "apps/api/prisma/**",
+      "apps/web/src/**",
+      "tools/crawler/src/**"
+    ]
   },
   "formatter": {
     "enabled": true,
