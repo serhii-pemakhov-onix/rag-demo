@@ -1,5 +1,7 @@
 import type { ChatImage, ChatSource } from '@/api/chat';
 import { cn } from '@/lib/utils';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface MessageProps {
   content: string;
@@ -9,7 +11,7 @@ interface MessageProps {
   isTyping?: boolean;
 }
 
-export function Message({ content, role, images, sources, isTyping }: MessageProps) {
+export function Message({ content, role, images, isTyping }: MessageProps) {
   const isUser = role === 'user';
 
   return (
@@ -41,8 +43,11 @@ export function Message({ content, role, images, sources, isTyping }: MessagePro
             <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
             <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/60" />
           </div>
-        ) : (
-          <p className="whitespace-pre-wrap">{content}</p>
+        ) : isUser ? (
+          <p className="m-0 whitespace-pre-wrap">{content}</p>) : (
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
+          </div>
         )}
       </div>
     </div>
